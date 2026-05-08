@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Wood Sheet Cutting Planner</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Wood Sheet Cutting Planner</h1>
+      <p>
+        Add your sheet stock and required pieces (MDF, laminations, etc.) to get
+        optimized cutting layouts and total sheets used.
+      </p>
+    </header>
+
+    <main>
+      <section class="panel">
+        <h2>Measurement Unit</h2>
+        <div class="unit-row">
+          <label>
+            Select Unit
+            <select id="unit-select">
+              <option value="mm">Millimeters (mm)</option>
+              <option value="cm">Centimeters (cm)</option>
+              <option value="in">Inches (in)</option>
+              <option value="ft">Feet (ft)</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Sheet Stock</h2>
+        <div class="form-grid">
+          <label>
+            Material
+            <input id="stock-material" type="text" placeholder="MDF" />
+          </label>
+          <label>
+            Length
+            <input id="stock-length" type="number" min="1" placeholder="2440" />
+          </label>
+          <label>
+            Width
+            <input id="stock-width" type="number" min="1" placeholder="1220" />
+          </label>
+          <label>
+            Available Sheets
+            <input id="stock-count" type="number" min="1" placeholder="20" />
+          </label>
+        </div>
+        <button id="add-stock" class="btn">Add Sheet Stock</button>
+
+        <div class="table-wrap">
+          <table id="stock-table">
+            <thead>
+              <tr>
+                <th>Material</th>
+                <th>Sheet Size (L x W)</th>
+                <th>Available</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Required Pieces</h2>
+        <div class="form-grid">
+          <label>
+            Material
+            <input id="piece-material" type="text" placeholder="MDF" />
+          </label>
+          <label>
+            Piece Length
+            <input id="piece-length" type="number" min="1" placeholder="600" />
+          </label>
+          <label>
+            Piece Width
+            <input id="piece-width" type="number" min="1" placeholder="450" />
+          </label>
+          <label>
+            Quantity
+            <input id="piece-qty" type="number" min="1" placeholder="8" />
+          </label>
+        </div>
+        <button id="add-piece" class="btn">Add Required Piece</button>
+
+        <div class="table-wrap">
+          <table id="piece-table">
+            <thead>
+              <tr>
+                <th>Material</th>
+                <th>Piece Size (L x W)</th>
+                <th>Qty</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel actions">
+        <button id="calculate" class="btn btn-primary">Calculate Cutting Plan</button>
+        <button id="load-demo" class="btn btn-ghost">Load Wardrobe Demo</button>
+        <button id="clear-all" class="btn btn-danger">Clear All</button>
+      </section>
+
+      <section id="results" class="panel hidden">
+        <h2>Results</h2>
+        <div id="summary" class="summary"></div>
+        <div id="warnings" class="warnings"></div>
+        <div id="layouts" class="layouts"></div>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
