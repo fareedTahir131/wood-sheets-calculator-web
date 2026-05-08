@@ -3,118 +3,150 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Wood Sheet Cutting Planner</title>
+    <title>Wood Sheet Calculator</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <header>
-      <h1>Wood Sheet Cutting Planner</h1>
-      <p>
-        Add your sheet stock and required pieces (MDF, laminations, etc.) to get
-        optimized cutting layouts and total sheets used.
-      </p>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Carpenter cutting planner</p>
+        <h1>Wood Sheet Calculator</h1>
+        <p>
+          Add stock when you know what is available, or leave stock empty and
+          calculate from a standard 8 ft x 4 ft sheet.
+        </p>
+      </div>
+      <label class="unit-control">
+        Measurement unit
+        <select id="unit-select">
+          <option value="ft">Feet (ft)</option>
+          <option value="in">Inches (in)</option>
+          <option value="m">Meters (m)</option>
+          <option value="cm">Centimeters (cm)</option>
+          <option value="mm">Millimeters (mm)</option>
+        </select>
+      </label>
     </header>
 
     <main>
-      <section class="panel">
-        <h2>Measurement Unit</h2>
-        <div class="unit-row">
-          <label>
-            Select Unit
-            <select id="unit-select">
-              <option value="mm">Millimeters (mm)</option>
-              <option value="cm">Centimeters (cm)</option>
-              <option value="in">Inches (in)</option>
-              <option value="ft">Feet (ft)</option>
-            </select>
-          </label>
+      <section class="workspace">
+        <div class="panel input-panel">
+          <div class="section-title">
+            <div>
+              <p class="eyebrow">Optional</p>
+              <h2>Sheet Stock</h2>
+            </div>
+            <span class="pill">Leave empty to use 8 ft x 4 ft</span>
+          </div>
+
+          <div class="form-grid stock-grid">
+            <label>
+              Material
+              <input id="stock-material" type="text" placeholder="MDF" />
+            </label>
+            <label>
+              Sheet Length
+              <input id="stock-length" type="number" min="0.01" step="any" placeholder="8" />
+            </label>
+            <label>
+              Sheet Width
+              <input id="stock-width" type="number" min="0.01" step="any" placeholder="4" />
+            </label>
+            <label>
+              Available Sheets
+              <input id="stock-count" type="number" min="1" step="1" placeholder="10" />
+            </label>
+          </div>
+
+          <button id="add-stock" class="btn btn-primary" type="button">Add Stock</button>
+
+          <div class="table-wrap">
+            <table id="stock-table">
+              <thead>
+                <tr>
+                  <th>Material</th>
+                  <th>Sheet size</th>
+                  <th>Available</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel input-panel">
+          <div class="section-title">
+            <div>
+              <p class="eyebrow">Required</p>
+              <h2>Pieces Needed</h2>
+            </div>
+            <span class="pill">Grouped by material</span>
+          </div>
+
+          <div class="form-grid piece-grid">
+            <label>
+              Material
+              <input id="piece-material" type="text" placeholder="MDF" />
+            </label>
+            <label>
+              Piece Length
+              <input id="piece-length" type="number" min="0.01" step="any" placeholder="2.5" />
+            </label>
+            <label>
+              Piece Width
+              <input id="piece-width" type="number" min="0.01" step="any" placeholder="1.5" />
+            </label>
+            <label>
+              Count
+              <input id="piece-qty" type="number" min="1" step="1" placeholder="6" />
+            </label>
+          </div>
+
+          <button id="add-piece" class="btn btn-primary" type="button">Add Piece</button>
+
+          <div class="table-wrap">
+            <table id="piece-table">
+              <thead>
+                <tr>
+                  <th>Material</th>
+                  <th>Piece size</th>
+                  <th>Count</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
         </div>
       </section>
 
-      <section class="panel">
-        <h2>Sheet Stock</h2>
-        <div class="form-grid">
-          <label>
-            Material
-            <input id="stock-material" type="text" placeholder="MDF" />
-          </label>
-          <label>
-            Length
-            <input id="stock-length" type="number" min="1" placeholder="2440" />
-          </label>
-          <label>
-            Width
-            <input id="stock-width" type="number" min="1" placeholder="1220" />
-          </label>
-          <label>
-            Available Sheets
-            <input id="stock-count" type="number" min="1" placeholder="20" />
-          </label>
+      <section class="panel action-panel">
+        <div>
+          <h2>Calculate Requirement</h2>
+          <p>
+            Matching stock is used first. Materials without stock are planned
+            on assumed 8 ft x 4 ft sheets.
+          </p>
         </div>
-        <button id="add-stock" class="btn">Add Sheet Stock</button>
-
-        <div class="table-wrap">
-          <table id="stock-table">
-            <thead>
-              <tr>
-                <th>Material</th>
-                <th>Sheet Size (L x W)</th>
-                <th>Available</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+        <div class="action-buttons">
+          <button id="calculate" class="btn btn-calculate" type="button">Calculate Sheets</button>
+          <button id="load-demo" class="btn" type="button">Load Demo</button>
+          <button id="clear-all" class="btn btn-danger" type="button">Clear All</button>
         </div>
       </section>
 
-      <section class="panel">
-        <h2>Required Pieces</h2>
-        <div class="form-grid">
-          <label>
-            Material
-            <input id="piece-material" type="text" placeholder="MDF" />
-          </label>
-          <label>
-            Piece Length
-            <input id="piece-length" type="number" min="1" placeholder="600" />
-          </label>
-          <label>
-            Piece Width
-            <input id="piece-width" type="number" min="1" placeholder="450" />
-          </label>
-          <label>
-            Quantity
-            <input id="piece-qty" type="number" min="1" placeholder="8" />
-          </label>
+      <section id="results" class="panel results hidden">
+        <div class="section-title">
+          <div>
+            <p class="eyebrow">Cutting result</p>
+            <h2>Sheets, Waste, and Remaining Stock</h2>
+          </div>
+          <span id="result-unit" class="pill"></span>
         </div>
-        <button id="add-piece" class="btn">Add Required Piece</button>
-
-        <div class="table-wrap">
-          <table id="piece-table">
-            <thead>
-              <tr>
-                <th>Material</th>
-                <th>Piece Size (L x W)</th>
-                <th>Qty</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="panel actions">
-        <button id="calculate" class="btn btn-primary">Calculate Cutting Plan</button>
-        <button id="load-demo" class="btn btn-ghost">Load Wardrobe Demo</button>
-        <button id="clear-all" class="btn btn-danger">Clear All</button>
-      </section>
-
-      <section id="results" class="panel hidden">
-        <h2>Results</h2>
         <div id="summary" class="summary"></div>
         <div id="warnings" class="warnings"></div>
+        <div id="legend" class="legend"></div>
         <div id="layouts" class="layouts"></div>
       </section>
     </main>

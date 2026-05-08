@@ -1,12 +1,22 @@
+const MM_PER_FOOT = 304.8;
+const DEFAULT_SHEET = {
+  length: 8 * MM_PER_FOOT,
+  width: 4 * MM_PER_FOOT,
+};
+
 const stockItems = [];
 const pieceItems = [];
+
 const unitConfig = {
-  mm: { label: "mm", toMm: 1 },
-  cm: { label: "cm", toMm: 10 },
-  in: { label: "in", toMm: 25.4 },
-  ft: { label: "ft", toMm: 304.8 },
+  ft: { label: "ft", toMm: MM_PER_FOOT, precision: 2 },
+  in: { label: "in", toMm: 25.4, precision: 2 },
+  m: { label: "m", toMm: 1000, precision: 3 },
+  cm: { label: "cm", toMm: 10, precision: 1 },
+  mm: { label: "mm", toMm: 1, precision: 0 },
 };
-let currentUnit = "mm";
+
+let currentUnit = "ft";
+let lastResult = null;
 
 const els = {
   stockMaterial: document.getElementById("stock-material"),
@@ -26,11 +36,14 @@ const els = {
   addStock: document.getElementById("add-stock"),
   addPiece: document.getElementById("add-piece"),
   results: document.getElementById("results"),
+  resultUnit: document.getElementById("result-unit"),
   summary: document.getElementById("summary"),
   warnings: document.getElementById("warnings"),
+  legend: document.getElementById("legend"),
   layouts: document.getElementById("layouts"),
 };
 
+els.unitSelect.value = currentUnit;
 els.addStock.addEventListener("click", onAddStock);
 els.addPiece.addEventListener("click", onAddPiece);
 els.calculate.addEventListener("click", onCalculate);
@@ -38,25 +51,32 @@ els.loadDemo.addEventListener("click", onLoadDemo);
 els.clearAll.addEventListener("click", onClearAll);
 els.unitSelect.addEventListener("change", onUnitChange);
 
+renderStockTable();
+renderPieceTable();
+
 function onUnitChange() {
   currentUnit = els.unitSelect.value;
   renderStockTable();
   renderPieceTable();
+
+  if (lastResult) {
+    renderResults(lastResult);
+  }
 }
 
 function onAddStock() {
   const material = cleanText(els.stockMaterial.value);
   const length = toMm(parsePositive(els.stockLength.value));
   const width = toMm(parsePositive(els.stockWidth.value));
-  const available = parsePositive(els.stockCount.value);
+  const available = parseWholeNumber(els.stockCount.value);
 
   if (!material || !length || !width || !available) {
-    alert("Please fill all stock fields with valid values.");
+    alert("Please fill all stock fields with valid positive values.");
     return;
   }
 
   stockItems.push({
-    id: crypto.randomUUID(),
+    id: makeId(),
     material,
     length,
     width,
@@ -71,15 +91,15 @@ function onAddPiece() {
   const material = cleanText(els.pieceMaterial.value);
   const length = toMm(parsePositive(els.pieceLength.value));
   const width = toMm(parsePositive(els.pieceWidth.value));
-  const qty = parsePositive(els.pieceQty.value);
+  const qty = parseWholeNumber(els.pieceQty.value);
 
   if (!material || !length || !width || !qty) {
-    alert("Please fill all piece fields with valid values.");
+    alert("Please fill all piece fields with valid positive values.");
     return;
   }
 
   pieceItems.push({
-    id: crypto.randomUUID(),
+    id: makeId(),
     material,
     length,
     width,
@@ -91,13 +111,13 @@ function onAddPiece() {
 }
 
 function onCalculate() {
-  if (!stockItems.length || !pieceItems.length) {
-    alert("Please add both stock sheets and required pieces first.");
+  if (!pieceItems.length) {
+    alert("Please add required pieces first.");
     return;
   }
 
-  const result = planCutting(stockItems, pieceItems);
-  renderResults(result);
+  lastResult = planCutting(stockItems, pieceItems);
+  renderResults(lastResult);
 }
 
 function onLoadDemo() {
@@ -105,164 +125,215 @@ function onLoadDemo() {
   pieceItems.length = 0;
 
   stockItems.push(
-    { id: crypto.randomUUID(), material: "MDF", length: 2440, width: 1220, available: 12 },
-    { id: crypto.randomUUID(), material: "Laminate", length: 2440, width: 1220, available: 8 }
+    { id: makeId(), material: "MDF", length: 8 * MM_PER_FOOT, width: 4 * MM_PER_FOOT, available: 4 },
+    { id: makeId(), material: "Chipboard", length: 9 * MM_PER_FOOT, width: 6 * MM_PER_FOOT, available: 2 }
   );
 
   pieceItems.push(
-    { id: crypto.randomUUID(), material: "MDF", length: 2100, width: 550, qty: 2 },
-    { id: crypto.randomUUID(), material: "MDF", length: 2100, width: 500, qty: 2 },
-    { id: crypto.randomUUID(), material: "MDF", length: 800, width: 500, qty: 6 },
-    { id: crypto.randomUUID(), material: "MDF", length: 700, width: 450, qty: 5 },
-    { id: crypto.randomUUID(), material: "Laminate", length: 2100, width: 550, qty: 2 },
-    { id: crypto.randomUUID(), material: "Laminate", length: 800, width: 500, qty: 6 }
+    { id: makeId(), material: "MDF", length: 7 * MM_PER_FOOT, width: 1.6 * MM_PER_FOOT, qty: 2 },
+    { id: makeId(), material: "MDF", length: 3 * MM_PER_FOOT, width: 1.5 * MM_PER_FOOT, qty: 6 },
+    { id: makeId(), material: "MDF", length: 2.5 * MM_PER_FOOT, width: 1.25 * MM_PER_FOOT, qty: 4 },
+    { id: makeId(), material: "Chipboard", length: 5 * MM_PER_FOOT, width: 2 * MM_PER_FOOT, qty: 3 },
+    { id: makeId(), material: "Laminate", length: 6 * MM_PER_FOOT, width: 1 * MM_PER_FOOT, qty: 5 }
   );
 
+  lastResult = null;
   renderStockTable();
   renderPieceTable();
+  els.results.classList.add("hidden");
 }
 
 function onClearAll() {
   stockItems.length = 0;
   pieceItems.length = 0;
+  lastResult = null;
   renderStockTable();
   renderPieceTable();
   els.results.classList.add("hidden");
   els.summary.innerHTML = "";
   els.warnings.innerHTML = "";
+  els.legend.innerHTML = "";
   els.layouts.innerHTML = "";
 }
 
 function renderStockTable() {
   els.stockBody.innerHTML = "";
+
+  if (!stockItems.length) {
+    els.stockBody.innerHTML = `
+      <tr>
+        <td class="empty-row" colspan="4">No stock added. Calculator will use assumed ${formatDim(DEFAULT_SHEET.length)} x ${formatDim(DEFAULT_SHEET.width)} ${unitLabel()} sheets.</td>
+      </tr>
+    `;
+    return;
+  }
+
   for (const item of stockItems) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${escapeHtml(item.material)}</td>
       <td>${formatDim(item.length)} x ${formatDim(item.width)} ${unitLabel()}</td>
       <td>${item.available}</td>
-      <td><button class="btn" data-remove-stock="${item.id}">Remove</button></td>
+      <td><button class="btn" type="button" data-remove-stock="${item.id}">Remove</button></td>
     `;
     els.stockBody.appendChild(tr);
   }
 
   els.stockBody.querySelectorAll("[data-remove-stock]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const id = btn.getAttribute("data-remove-stock");
-      const idx = stockItems.findIndex((s) => s.id === id);
-      if (idx >= 0) {
-        stockItems.splice(idx, 1);
-        renderStockTable();
-      }
+      removeById(stockItems, btn.getAttribute("data-remove-stock"));
+      lastResult = null;
+      renderStockTable();
     });
   });
 }
 
 function renderPieceTable() {
   els.pieceBody.innerHTML = "";
+
+  if (!pieceItems.length) {
+    els.pieceBody.innerHTML = `
+      <tr>
+        <td class="empty-row" colspan="4">Add required pieces to calculate sheets.</td>
+      </tr>
+    `;
+    return;
+  }
+
   for (const item of pieceItems) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${escapeHtml(item.material)}</td>
       <td>${formatDim(item.length)} x ${formatDim(item.width)} ${unitLabel()}</td>
       <td>${item.qty}</td>
-      <td><button class="btn" data-remove-piece="${item.id}">Remove</button></td>
+      <td><button class="btn" type="button" data-remove-piece="${item.id}">Remove</button></td>
     `;
     els.pieceBody.appendChild(tr);
   }
 
   els.pieceBody.querySelectorAll("[data-remove-piece]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const id = btn.getAttribute("data-remove-piece");
-      const idx = pieceItems.findIndex((s) => s.id === id);
-      if (idx >= 0) {
-        pieceItems.splice(idx, 1);
-        renderPieceTable();
-      }
+      removeById(pieceItems, btn.getAttribute("data-remove-piece"));
+      lastResult = null;
+      renderPieceTable();
     });
   });
 }
 
 function planCutting(stocks, pieces) {
-  const materialGroups = groupBy(pieces, (p) => p.material.toLowerCase());
-  const allSheets = [];
-  const summaryByMaterial = {};
+  const materialGroups = groupBy(pieces, (p) => materialKey(p.material));
+  const sheets = [];
+  const summary = [];
   const warnings = [];
 
-  for (const [materialKey, matPieces] of materialGroups.entries()) {
+  for (const [, matPieces] of materialGroups.entries()) {
     const materialName = matPieces[0].material;
-    const stocksForMaterial = stocks
-      .filter((s) => s.material.toLowerCase() === materialKey)
-      .map((s) => ({ ...s, used: 0 }))
+    const matchingStock = stocks
+      .filter((stock) => materialKey(stock.material) === materialKey(materialName))
+      .map((stock) => ({ ...stock, used: 0, unlimited: false }))
       .sort((a, b) => b.length * b.width - a.length * a.width);
 
-    if (!stocksForMaterial.length) {
-      warnings.push(`No stock sheet found for material: ${materialName}`);
-      continue;
-    }
+    const usesAssumedSheet = matchingStock.length === 0;
+    const sheetSources = usesAssumedSheet
+      ? [
+          {
+            id: `assumed-${materialKey(materialName)}`,
+            material: materialName,
+            length: DEFAULT_SHEET.length,
+            width: DEFAULT_SHEET.width,
+            available: Number.POSITIVE_INFINITY,
+            used: 0,
+            unlimited: true,
+          },
+        ]
+      : matchingStock;
 
-    const requiredUnits = expandPieces(matPieces).sort(sortPieces);
+    const requiredUnits = expandPieces(matPieces)
+      .sort(sortPieces)
+      .map((piece, index) => ({ ...piece, material: materialName, pieceNo: index + 1 }));
+
     const activeSheets = [];
     const unplaced = [];
 
     for (const unit of requiredUnits) {
-      const placedInExisting = placeInBestSheet(activeSheets, unit);
-      if (placedInExisting) continue;
+      if (placeInBestSheet(activeSheets, unit)) continue;
 
-      const opened = openBestSheetAndPlace(stocksForMaterial, activeSheets, unit);
+      const opened = openBestSheetAndPlace(sheetSources, activeSheets, unit);
       if (!opened) {
         unplaced.push(unit);
       }
     }
 
-    const used = activeSheets.length;
-    summaryByMaterial[materialName] = {
+    const usedArea = activeSheets.reduce((acc, sheet) => acc + sheet.usedArea, 0);
+    const totalArea = activeSheets.reduce((acc, sheet) => acc + sheet.length * sheet.width, 0);
+    const remainingStock = usesAssumedSheet
+      ? null
+      : sheetSources.reduce((acc, stock) => acc + Math.max(stock.available - stock.used, 0), 0);
+
+    summary.push({
+      material: materialName,
+      source: usesAssumedSheet ? "assumed" : "stock",
       requiredPieces: requiredUnits.length,
       placedPieces: requiredUnits.length - unplaced.length,
-      usedSheets: used,
-      unusedStock: stocksForMaterial.reduce((acc, s) => acc + (s.available - s.used), 0),
-    };
+      sheetsUsed: activeSheets.length,
+      remainingStock,
+      utilization: totalArea ? (usedArea / totalArea) * 100 : 0,
+      unplacedCount: unplaced.length,
+    });
 
-    allSheets.push(...activeSheets);
+    sheets.push(...activeSheets);
+
+    if (usesAssumedSheet) {
+      warnings.push(
+        `${materialName}: no stock was added, so the plan uses assumed ${formatDim(DEFAULT_SHEET.length)} x ${formatDim(DEFAULT_SHEET.width)} ${unitLabel()} sheets.`
+      );
+    }
 
     if (unplaced.length) {
-      const grouped = groupBy(unplaced, (u) => `${u.length}x${u.width}`);
-      for (const [dim, list] of grouped.entries()) {
-        const [l, w] = dim.split("x").map((v) => Number(v));
-        warnings.push(
-          `Material ${materialName}: could not place ${list.length} piece(s) of ${formatDim(l)} x ${formatDim(w)} ${unitLabel()} because available stock is not enough.`
-        );
+      for (const warning of buildUnplacedWarnings(materialName, unplaced, usesAssumedSheet)) {
+        warnings.push(warning);
       }
     }
   }
 
-  const totalUsed = allSheets.length;
-  return { summaryByMaterial, allSheets, warnings, totalUsed };
+  return {
+    summary,
+    sheets,
+    warnings,
+    totals: {
+      materials: summary.length,
+      sheetsUsed: summary.reduce((acc, row) => acc + row.sheetsUsed, 0),
+      piecesRequired: summary.reduce((acc, row) => acc + row.requiredPieces, 0),
+      piecesPlaced: summary.reduce((acc, row) => acc + row.placedPieces, 0),
+    },
+  };
 }
 
-function openBestSheetAndPlace(stocksForMaterial, activeSheets, piece) {
+function openBestSheetAndPlace(sheetSources, activeSheets, piece) {
   let selected = null;
 
-  for (const stock of stocksForMaterial) {
-    if (stock.used >= stock.available) continue;
+  for (const source of sheetSources) {
+    if (!source.unlimited && source.used >= source.available) continue;
 
-    const preview = tryPlaceOnFreshSheet(stock, piece);
+    const preview = tryPlaceOnFreshSheet(source, piece);
     if (!preview) continue;
 
-    if (!selected || preview.remainingWaste < selected.preview.remainingWaste) {
-      selected = { stock, preview };
+    const score = preview.remainingArea + source.length * source.width * 0.001;
+    if (!selected || score < selected.score) {
+      selected = { source, preview, score };
     }
   }
 
   if (!selected) return false;
 
-  selected.stock.used += 1;
-  const sheetId = `${selected.stock.material}-${selected.stock.length}x${selected.stock.width}-${selected.stock.used}`;
+  selected.source.used += 1;
   const sheet = {
-    id: sheetId,
-    material: selected.stock.material,
-    length: selected.stock.length,
-    width: selected.stock.width,
+    id: `${selected.source.id || selected.source.material}-${selected.source.used}`,
+    material: selected.source.material,
+    length: selected.source.length,
+    width: selected.source.width,
+    source: selected.source.unlimited ? "Assumed sheet" : "Stock sheet",
+    sheetNo: selected.source.used,
     placements: [selected.preview.placement],
     freeRects: selected.preview.freeRects,
     usedArea: selected.preview.placement.width * selected.preview.placement.height,
@@ -272,18 +343,16 @@ function openBestSheetAndPlace(stocksForMaterial, activeSheets, piece) {
   return true;
 }
 
-function tryPlaceOnFreshSheet(stock, piece) {
-  const freeRects = [{ x: 0, y: 0, width: stock.length, height: stock.width }];
+function tryPlaceOnFreshSheet(source, piece) {
+  const freeRects = [{ x: 0, y: 0, width: source.width, height: source.length }];
   const fit = choosePlacement(freeRects, piece);
   if (!fit) return null;
 
-  const updated = splitFreeRects(freeRects, fit.rectIndex, fit.placement);
-  const totalArea = stock.length * stock.width;
-  const usedArea = fit.placement.width * fit.placement.height;
+  const freeRectsAfterPlacement = splitFreeRects(freeRects, fit.rectIndex, fit.placement);
   return {
     placement: fit.placement,
-    freeRects: updated,
-    remainingWaste: totalArea - usedArea,
+    freeRects: freeRectsAfterPlacement,
+    remainingArea: source.length * source.width - fit.placement.width * fit.placement.height,
   };
 }
 
@@ -296,9 +365,11 @@ function placeInBestSheet(activeSheets, piece) {
     if (!fit) continue;
 
     const leftoverScore = fit.rect.width * fit.rect.height - fit.placement.width * fit.placement.height;
+    const trimScore = Math.abs(fit.rect.width - fit.placement.width) + Math.abs(fit.rect.height - fit.placement.height);
+    const score = leftoverScore + trimScore;
 
-    if (!best || leftoverScore < best.leftoverScore) {
-      best = { sheetIndex: i, fit, leftoverScore };
+    if (!best || score < best.score) {
+      best = { sheetIndex: i, fit, score };
     }
   }
 
@@ -317,16 +388,19 @@ function choosePlacement(freeRects, piece) {
   for (let i = 0; i < freeRects.length; i += 1) {
     const rect = freeRects[i];
     const options = [
-      { width: piece.length, height: piece.width, rotated: false },
-      { width: piece.width, height: piece.length, rotated: true },
+      { width: piece.width, height: piece.length, rotated: false },
+      { width: piece.length, height: piece.width, rotated: true },
     ];
 
     for (const option of options) {
       if (option.width <= rect.width && option.height <= rect.height) {
         const waste = rect.width * rect.height - option.width * option.height;
-        if (!best || waste < best.waste) {
+        const shortSideWaste = Math.min(rect.width - option.width, rect.height - option.height);
+        const score = waste + shortSideWaste;
+
+        if (!best || score < best.score) {
           best = {
-            waste,
+            score,
             rect,
             rectIndex: i,
             placement: {
@@ -336,6 +410,7 @@ function choosePlacement(freeRects, piece) {
               height: option.height,
               sourceLength: piece.length,
               sourceWidth: piece.width,
+              pieceNo: piece.pieceNo,
               rotated: option.rotated,
             },
           };
@@ -365,16 +440,11 @@ function splitFreeRects(freeRects, rectIndex, placement) {
     height: base.height - placement.height,
   };
 
-  const remainder = {
-    x: base.x + placement.width,
-    y: base.y + placement.height,
-    width: base.width - placement.width,
-    height: base.height - placement.height,
-  };
-
-  [right, bottom, remainder]
-    .filter((r) => r.width > 0 && r.height > 0)
-    .forEach((r) => result.push(r));
+  for (const rect of [right, bottom]) {
+    if (rect.width > 0.5 && rect.height > 0.5) {
+      result.push(rect);
+    }
+  }
 
   return pruneContainedRectangles(result);
 }
@@ -384,9 +454,12 @@ function pruneContainedRectangles(rects) {
     for (let j = 0; j < rects.length; j += 1) {
       if (i === j) continue;
       const b = rects[j];
-      if (a.x >= b.x && a.y >= b.y && a.x + a.width <= b.x + b.width && a.y + a.height <= b.y + b.height) {
-        return false;
-      }
+      const inside =
+        a.x >= b.x &&
+        a.y >= b.y &&
+        a.x + a.width <= b.x + b.width &&
+        a.y + a.height <= b.y + b.height;
+      if (inside) return false;
     }
     return true;
   });
@@ -394,51 +467,119 @@ function pruneContainedRectangles(rects) {
 
 function renderResults(result) {
   els.results.classList.remove("hidden");
+  els.resultUnit.textContent = `All dimensions in ${unitLabel()}`;
   els.summary.innerHTML = "";
   els.warnings.innerHTML = "";
+  els.legend.innerHTML = "";
   els.layouts.innerHTML = "";
 
-  const totalCard = document.createElement("div");
-  totalCard.className = "summary-card";
-  totalCard.innerHTML = `<strong>Total Sheets Used:</strong> <span class="ok">${result.totalUsed}</span><br />Current display unit: ${unitLabel()}`;
-  els.summary.appendChild(totalCard);
+  renderSummary(result);
+  renderWarnings(result.warnings);
+  renderLegend();
+  renderLayouts(result.sheets, result.summary);
+}
 
-  Object.entries(result.summaryByMaterial).forEach(([material, row]) => {
+function renderSummary(result) {
+  const overview = [
+    {
+      number: result.totals.sheetsUsed,
+      label: `total sheet${result.totals.sheetsUsed === 1 ? "" : "s"} required`,
+    },
+    {
+      number: result.totals.piecesPlaced,
+      label: `${result.totals.piecesRequired} required piece${result.totals.piecesRequired === 1 ? "" : "s"} planned`,
+    },
+    {
+      number: result.totals.materials,
+      label: `material group${result.totals.materials === 1 ? "" : "s"}`,
+    },
+  ];
+
+  for (const item of overview) {
     const card = document.createElement("div");
     card.className = "summary-card";
-    card.innerHTML = `
-      <strong>${escapeHtml(material)}</strong><br />
-      Required Pieces: ${row.requiredPieces} | Placed: ${row.placedPieces}<br />
-      Sheets Used: ${row.usedSheets} | Remaining Stock: ${row.unusedStock}
-    `;
+    card.innerHTML = `<strong>${item.number}</strong><span>${escapeHtml(item.label)}</span>`;
     els.summary.appendChild(card);
-  });
-
-  if (!result.warnings.length) {
-    const ok = document.createElement("div");
-    ok.className = "summary-card";
-    ok.innerHTML = "All pieces were placed successfully.";
-    els.warnings.appendChild(ok);
-  } else {
-    result.warnings.forEach((w) => {
-      const div = document.createElement("div");
-      div.className = "warning";
-      div.textContent = w;
-      els.warnings.appendChild(div);
-    });
   }
 
-  const byMaterial = groupBy(result.allSheets, (s) => s.material.toLowerCase());
+  for (const row of result.summary) {
+    const card = document.createElement("div");
+    card.className = "summary-card";
+    const remainingText =
+      row.remainingStock === null
+        ? "Assumed sheets, no stock limit"
+        : `${row.remainingStock} full sheet${row.remainingStock === 1 ? "" : "s"} still in stock`;
+    card.innerHTML = `
+      <strong>${escapeHtml(row.material)}</strong>
+      <span>
+        ${row.sheetsUsed} sheet${row.sheetsUsed === 1 ? "" : "s"} used from ${row.source}<br>
+        ${row.placedPieces}/${row.requiredPieces} pieces placed<br>
+        ${remainingText}<br>
+        ${row.utilization.toFixed(1)}% sheet area used
+      </span>
+    `;
+    els.summary.appendChild(card);
+  }
+}
 
-  for (const [_, list] of byMaterial.entries()) {
-    const materialName = list[0].material;
-    const title = document.createElement("h3");
-    title.textContent = `${materialName} Layouts`;
-    els.layouts.appendChild(title);
+function renderWarnings(warnings) {
+  if (!warnings.length) {
+    const ok = document.createElement("div");
+    ok.className = "success";
+    ok.textContent = "All required pieces were placed successfully.";
+    els.warnings.appendChild(ok);
+    return;
+  }
 
-    list.forEach((sheet, idx) => {
-      els.layouts.appendChild(buildSheetNode(sheet, idx + 1));
-    });
+  for (const warning of warnings) {
+    const div = document.createElement("div");
+    div.className = warning.includes("no stock was added") ? "success" : "warning";
+    div.textContent = warning;
+    els.warnings.appendChild(div);
+  }
+}
+
+function renderLegend() {
+  const items = [
+    ["Cut pieces", "hsl(174 54% 78%)"],
+    ["Reusable remaining area", "var(--remaining)"],
+    ["Waste / narrow offcut", "var(--waste)"],
+  ];
+
+  for (const [label, color] of items) {
+    const node = document.createElement("div");
+    node.className = "legend-item";
+    node.innerHTML = `<span class="legend-swatch" style="background:${color}"></span>${label}`;
+    els.legend.appendChild(node);
+  }
+}
+
+function renderLayouts(sheets, summary) {
+  if (!sheets.length) {
+    const empty = document.createElement("div");
+    empty.className = "warning";
+    empty.textContent = "No sheets could be drawn because none of the pieces fit the available sheet sizes.";
+    els.layouts.appendChild(empty);
+    return;
+  }
+
+  const byMaterial = groupBy(sheets, (sheet) => materialKey(sheet.material));
+  for (const [, list] of byMaterial.entries()) {
+    const material = list[0].material;
+    const materialSummary = summary.find((row) => materialKey(row.material) === materialKey(material));
+    const group = document.createElement("div");
+    group.className = "material-group";
+
+    const heading = document.createElement("div");
+    heading.className = "material-heading";
+    heading.innerHTML = `
+      <h3>${escapeHtml(material)} layouts</h3>
+      <p>${materialSummary ? `${materialSummary.sheetsUsed} sheet${materialSummary.sheetsUsed === 1 ? "" : "s"} required` : ""}</p>
+    `;
+    group.appendChild(heading);
+
+    list.forEach((sheet, index) => group.appendChild(buildSheetNode(sheet, index + 1)));
+    els.layouts.appendChild(group);
   }
 }
 
@@ -450,32 +591,43 @@ function buildSheetNode(sheet, index) {
   const title = document.createElement("div");
   title.className = "sheet-title";
   title.innerHTML = `
-    <div><strong>Sheet ${index}</strong> - ${formatDim(sheet.length)} x ${formatDim(sheet.width)} ${unitLabel()}</div>
-    <div>Utilization: ${usedPct}% | Pieces: ${sheet.placements.length}</div>
+    <div>
+      <strong>${escapeHtml(sheet.material)} sheet ${index}</strong>
+      <small>${sheet.source} - ${formatDim(sheet.length)} length x ${formatDim(sheet.width)} width ${unitLabel()}</small>
+    </div>
+    <div class="sheet-stats">
+      ${sheet.placements.length} cut piece${sheet.placements.length === 1 ? "" : "s"}<br>
+      ${usedPct}% used
+    </div>
   `;
 
   const wrap = document.createElement("div");
   wrap.className = "canvas-wrap";
 
-  const maxPx = 620;
-  const scale = Math.min(maxPx / sheet.length, 340 / sheet.width, 1);
-
   const canvas = document.createElement("div");
   canvas.className = "sheet-canvas";
-  canvas.style.width = `${Math.max(220, sheet.length * scale)}px`;
-  canvas.style.height = `${Math.max(140, sheet.width * scale)}px`;
 
-  sheet.placements.forEach((p, i) => {
-    const block = document.createElement("div");
-    block.className = "piece";
-    block.style.left = `${p.x * scale}px`;
-    block.style.top = `${p.y * scale}px`;
-    block.style.width = `${p.width * scale}px`;
-    block.style.height = `${p.height * scale}px`;
-    block.style.background = colorForIndex(i);
-    block.title = `${formatDim(p.sourceLength)} x ${formatDim(p.sourceWidth)} ${unitLabel()}${p.rotated ? " (rotated)" : ""}`;
-    block.textContent = `${formatDim(p.sourceLength)}x${formatDim(p.sourceWidth)}`;
-    canvas.appendChild(block);
+  const size = getCanvasSize(sheet);
+  const scale = size.scale;
+  canvas.style.width = `${size.width}px`;
+  canvas.style.height = `${size.height}px`;
+
+  const widthDim = document.createElement("div");
+  widthDim.className = "dimension-label dim-width";
+  widthDim.textContent = `Width ${formatDim(sheet.width)} ${unitLabel()}`;
+  canvas.appendChild(widthDim);
+
+  const lengthDim = document.createElement("div");
+  lengthDim.className = "dimension-label dim-length";
+  lengthDim.textContent = `Length ${formatDim(sheet.length)} ${unitLabel()}`;
+  canvas.appendChild(lengthDim);
+
+  sheet.freeRects.forEach((rect) => {
+    canvas.appendChild(buildFreeRectNode(rect, sheet, scale));
+  });
+
+  sheet.placements.forEach((placement, placementIndex) => {
+    canvas.appendChild(buildPieceNode(placement, placementIndex, scale));
   });
 
   wrap.appendChild(canvas);
@@ -484,9 +636,85 @@ function buildSheetNode(sheet, index) {
   return container;
 }
 
-function colorForIndex(index) {
-  const hue = (index * 47) % 360;
-  return `hsl(${hue} 70% 85%)`;
+function buildPieceNode(placement, index, scale) {
+  const block = document.createElement("div");
+  block.className = "piece";
+  setRectStyles(block, placement, scale);
+  block.style.background = colorForIndex(index);
+
+  const readable = placement.width * scale >= 64 && placement.height * scale >= 36;
+  block.innerHTML = `
+    <span class="rect-label${readable ? "" : " tiny-label"}">
+      Piece ${placement.pieceNo}<br>
+      ${formatDim(placement.sourceLength)} x ${formatDim(placement.sourceWidth)} ${unitLabel()}
+    </span>
+  `;
+  block.title = `Piece ${placement.pieceNo}: ${formatDim(placement.sourceLength)} x ${formatDim(placement.sourceWidth)} ${unitLabel()}${placement.rotated ? " (rotated on sheet)" : ""}`;
+  return block;
+}
+
+function buildFreeRectNode(rect, sheet, scale) {
+  const block = document.createElement("div");
+  const isWaste = isWasteRect(rect, sheet);
+  block.className = `waste-rect${isWaste ? "" : " reusable-rect"}`;
+  setRectStyles(block, rect, scale);
+
+  if (!isWaste) {
+    block.style.background = "var(--remaining)";
+    block.style.borderStyle = "solid";
+  }
+
+  const readable = rect.width * scale >= 72 && rect.height * scale >= 38;
+  const label = isWaste ? "Waste" : "Remaining";
+  block.innerHTML = `
+    <span class="rect-label${readable ? "" : " tiny-label"}">
+      ${label}<br>
+      ${formatDim(rect.height)} x ${formatDim(rect.width)} ${unitLabel()}
+    </span>
+  `;
+  block.title = `${label}: ${formatDim(rect.height)} length x ${formatDim(rect.width)} width ${unitLabel()}`;
+  return block;
+}
+
+function setRectStyles(node, rect, scale) {
+  node.style.left = `${rect.x * scale}px`;
+  node.style.top = `${rect.y * scale}px`;
+  node.style.width = `${Math.max(rect.width * scale, 1)}px`;
+  node.style.height = `${Math.max(rect.height * scale, 1)}px`;
+}
+
+function getCanvasSize(sheet) {
+  const maxWidth = Math.min(760, Math.max(280, window.innerWidth - 76));
+  const maxHeight = 620;
+  const scale = Math.min(maxWidth / sheet.width, maxHeight / sheet.length);
+
+  return {
+    scale,
+    width: Math.max(180, sheet.width * scale),
+    height: Math.max(300, sheet.length * scale),
+  };
+}
+
+function isWasteRect(rect, sheet) {
+  const area = rect.width * rect.height;
+  const sheetArea = sheet.width * sheet.length;
+  const narrowLimit = 3 * 25.4;
+  return Math.min(rect.width, rect.height) < narrowLimit || area / sheetArea < 0.035;
+}
+
+function buildUnplacedWarnings(materialName, unplaced, usesAssumedSheet) {
+  const warnings = [];
+  const grouped = groupBy(unplaced, (piece) => `${piece.length}x${piece.width}`);
+  const reason = usesAssumedSheet ? "larger than the assumed sheet" : "too large for the stock sheet or stock quantity is not enough";
+
+  for (const [dim, list] of grouped.entries()) {
+    const [length, width] = dim.split("x").map(Number);
+    warnings.push(
+      `${materialName}: ${list.length} piece${list.length === 1 ? "" : "s"} of ${formatDim(length)} x ${formatDim(width)} ${unitLabel()} could not be placed because it is ${reason}.`
+    );
+  }
+
+  return warnings;
 }
 
 function expandPieces(items) {
@@ -502,25 +730,47 @@ function expandPieces(items) {
 function sortPieces(a, b) {
   const areaDiff = b.length * b.width - a.length * a.width;
   if (areaDiff !== 0) return areaDiff;
-  const maxSideA = Math.max(a.length, a.width);
-  const maxSideB = Math.max(b.length, b.width);
-  return maxSideB - maxSideA;
+  return Math.max(b.length, b.width) - Math.max(a.length, a.width);
+}
+
+function colorForIndex(index) {
+  const palette = [
+    "hsl(174 54% 78%)",
+    "hsl(43 88% 76%)",
+    "hsl(204 78% 82%)",
+    "hsl(12 82% 82%)",
+    "hsl(138 52% 78%)",
+    "hsl(286 52% 84%)",
+    "hsl(55 72% 78%)",
+    "hsl(350 70% 84%)",
+  ];
+  return palette[index % palette.length];
 }
 
 function groupBy(arr, keyFn) {
-  const m = new Map();
+  const map = new Map();
   for (const item of arr) {
     const key = keyFn(item);
-    const list = m.get(key) || [];
-    list.push(item);
-    m.set(key, list);
+    const group = map.get(key) || [];
+    group.push(item);
+    map.set(key, group);
   }
-  return m;
+  return map;
 }
 
-function parsePositive(v) {
-  const n = Number(v);
-  return Number.isFinite(n) && n > 0 ? n : 0;
+function removeById(items, id) {
+  const index = items.findIndex((item) => item.id === id);
+  if (index >= 0) items.splice(index, 1);
+}
+
+function parsePositive(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : 0;
+}
+
+function parseWholeNumber(value) {
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 ? number : 0;
 }
 
 function toMm(value) {
@@ -533,16 +783,20 @@ function fromMm(value) {
 
 function formatDim(mmValue) {
   const converted = fromMm(mmValue);
-  if (Number.isInteger(converted)) return String(converted);
-  return converted.toFixed(2).replace(/\.00$/, "");
+  const precision = unitConfig[currentUnit].precision;
+  return converted.toFixed(precision).replace(/\.?0+$/, "");
 }
 
 function unitLabel() {
   return unitConfig[currentUnit].label;
 }
 
-function cleanText(v) {
-  return String(v || "").trim();
+function materialKey(value) {
+  return cleanText(value).toLowerCase();
+}
+
+function cleanText(value) {
+  return String(value || "").trim();
 }
 
 function clearStockInputs() {
@@ -557,6 +811,11 @@ function clearPieceInputs() {
   els.pieceLength.value = "";
   els.pieceWidth.value = "";
   els.pieceQty.value = "";
+}
+
+function makeId() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function escapeHtml(input) {
