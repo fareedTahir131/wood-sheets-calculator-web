@@ -3,18 +3,85 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Wood Sheet Calculator</title>
+    <title>Wood Sheet Calculator | MDF, Plywood & Chipboard Cutting Planner</title>
+    <meta
+      name="description"
+      content="Free Wood Sheet Calculator by Eggy Studio. Plan MDF, plywood, laminate and chipboard sheets, cutting layouts, stock use, waste and required pieces."
+    />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#253025" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Wood Sheet Calculator" />
+    <meta property="og:title" content="Wood Sheet Calculator" />
+    <meta
+      property="og:description"
+      content="A practical sheet cutting calculator for carpenters, cabinet makers and workshops."
+    />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Wood Sheet Calculator" />
+    <meta
+      name="twitter:description"
+      content="Calculate sheet requirements, stock use, waste and visual cutting layouts."
+    />
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="styles.css" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Wood Sheet Calculator",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Any",
+        "publisher": {
+          "@type": "Organization",
+          "name": "Eggy Studio"
+        },
+        "description": "Wood Sheet Calculator helps carpenters calculate MDF, plywood, laminate and chipboard sheet requirements, cutting layouts, stock usage, waste pieces and remaining sheet area.",
+        "featureList": [
+          "Calculate required wood sheets from piece sizes and counts",
+          "Use optional stock by material",
+          "Plan MDF, plywood, laminate and chipboard sheets",
+          "Show visual sheet cutting layouts",
+          "Highlight cut pieces, waste and remaining sheet area",
+          "Support feet, inches, meters, centimeters and millimeters"
+        ],
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
+      }
+    </script>
   </head>
   <body>
-    <header class="app-header">
+    <header class="site-header">
+      <nav class="nav-bar" aria-label="Primary navigation">
+        <a class="brand" href="index.html" aria-label="Wood Sheet Calculator home">
+          <img src="assets/favicon.svg" alt="" width="46" height="46" />
+          <div>Wood Sheet Calculator <span>by Eggy Studio</span></div>
+        </a>
+        <div class="nav-links">
+          <a class="active" href="index.html">Home</a>
+          <a href="guide.html">Guide</a>
+          <a href="about.html">About</a>
+          <a href="contact.html">Contact</a>
+          <a href="privacy-policy.html">Privacy</a>
+        </div>
+      </nav>
+    </header>
+
+    <section class="app-header">
       <div>
         <p class="eyebrow">Carpenter cutting planner</p>
         <h1>Wood Sheet Calculator</h1>
         <p>
-          Add stock when you know what is available, or leave stock empty and
-          calculate from a standard 8 ft x 4 ft sheet.
+          Calculate MDF, plywood, laminate and chipboard sheet requirements from
+          piece sizes, available stock and visual cutting layouts.
         </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#calculator">Use Calculator</a>
+          <a class="btn" href="guide.html">Read Cutting Guides</a>
+        </div>
       </div>
       <label class="unit-control">
         Measurement unit
@@ -26,10 +93,10 @@
           <option value="mm">Millimeters (mm)</option>
         </select>
       </label>
-    </header>
+    </section>
 
-    <main>
-      <section class="workspace">
+    <main id="calculator">
+      <section class="workspace" aria-label="Wood sheet calculator form">
         <div class="panel input-panel">
           <div class="section-title">
             <div>
@@ -149,8 +216,142 @@
         <div id="legend" class="legend"></div>
         <div id="layouts" class="layouts"></div>
       </section>
+
+      <section class="content-section" aria-label="MDF calculator guide">
+        <article class="content-panel">
+          <p class="eyebrow">Complete guide</p>
+          <h2>How to Use the MDF Calculator Effectively</h2>
+          <p>
+            The Wood Sheet Calculator is designed for carpenters, cabinet
+            makers, furniture workshops and DIY builders who need a quick way to
+            estimate how many sheets are required before buying or cutting
+            material. Start by choosing the measurement unit at the top of the
+            page. If your workshop works in feet, select feet. If your drawing
+            or cutting list is in millimeters, select millimeters before you
+            enter sizes. Every stock sheet and every required piece will be
+            measured in that selected unit, which helps prevent mistakes caused
+            by mixing feet, inches and metric dimensions.
+          </p>
+          <p>
+            If you already have material in stock, add it first. Enter the sheet
+            material name, such as MDF, plywood, chipboard, laminate or
+            melamine board. Then enter the sheet length, sheet width and the
+            number of full sheets available. The calculator groups stock by
+            material, so MDF pieces are planned on MDF stock and plywood pieces
+            are planned on plywood stock. This is important because many shops
+            keep several board types with similar dimensions but different
+            uses, thicknesses, finishes or costs.
+          </p>
+          <p>
+            You can also use the calculator without adding stock. In that case,
+            each material is calculated on a standard 8 ft x 4 ft sheet. This is
+            helpful when you are preparing a quote, estimating a wardrobe or
+            kitchen cabinet project, or comparing material requirements before
+            visiting a supplier. Once you know the available sheet sizes at your
+            local store, you can add the exact stock size for a more specific
+            plan.
+          </p>
+          <p>
+            After stock is ready, add the required pieces. Enter the piece
+            material, length, width and count. For example, a cabinet side panel
+            might be MDF, 7 ft long, 1.6 ft wide and quantity 2. Shelves,
+            partitions, drawer bottoms and door panels can be entered as
+            separate rows. Keep the material names consistent. If you type
+            "MDF" in stock and "mdf" in pieces, the calculator treats them as
+            the same material, but clear naming is still a good habit for
+            workshop records.
+          </p>
+          <p>
+            When you press Calculate Sheets, the tool places larger pieces first
+            and then fills remaining areas with smaller pieces. The result
+            shows the total sheets required, how many pieces were placed, the
+            remaining full sheets in stock and the sheet area utilization. The
+            visual layout shows each sheet in proportion, with the long side
+            displayed vertically for an easy workshop view. Cut pieces are shown
+            in different colors. Remaining reusable sheet area and waste or
+            narrow offcuts are also highlighted with their measurements.
+          </p>
+
+          <h2>Tips for Minimizing Wood Waste During Cutting</h2>
+          <p>
+            Waste control begins before the saw is switched on. First, check
+            the direction of the grain, laminate pattern or visible finish. Some
+            materials can be rotated freely, while veneered plywood, textured
+            laminate and decorative panels may need all visible pieces aligned
+            in one direction. A layout that looks efficient on screen may not be
+            acceptable if the grain direction changes between doors or panels.
+          </p>
+          <p>
+            Second, group similar widths together. Long strips are often easier
+            to cut accurately when the first cut creates a clean rip from the
+            full sheet. For example, if several shelves are 12 inches wide, it
+            may be better to rip one long 12 inch strip and crosscut it into
+            shelves instead of cutting each shelf separately from different
+            parts of the board. This improves speed and reduces measuring
+            errors.
+          </p>
+          <p>
+            Third, plan for the saw kerf. The calculator gives a practical
+            layout estimate, but every physical saw cut removes material. A
+            table saw blade, circular saw blade or panel saw may remove a few
+            millimeters with each cut. On a project with many parts, this adds
+            up. Leave a small allowance around important pieces and confirm the
+            final cut sequence before marking the sheet.
+          </p>
+          <p>
+            Fourth, keep offcuts useful. A narrow strip may be waste for a
+            wardrobe side panel but perfect for cleats, backing strips, drawer
+            spacers or test cuts. Label offcuts by material, thickness and size.
+            A tidy offcut rack can save money on the next job and reduce the
+            amount of board sent to disposal.
+          </p>
+
+          <h2>Common Standard Sheet Sizes for MDF and Plywood</h2>
+          <p>
+            The most common workshop sheet size is 8 ft x 4 ft, also written as
+            2440 mm x 1220 mm. Many MDF, plywood, chipboard, melamine and
+            laminate boards are sold in this size because it balances material
+            yield, transport and handling. Some suppliers also stock larger
+            sizes such as 9 ft x 6 ft, 10 ft x 5 ft, 2800 mm x 2070 mm or 3050
+            mm x 1220 mm, especially for commercial cabinetry and decorative
+            laminates.
+          </p>
+          <p>
+            Thickness is another practical factor. MDF commonly comes in 3 mm,
+            6 mm, 9 mm, 12 mm, 16 mm, 18 mm and 25 mm, depending on the region
+            and supplier. Plywood may be sold in similar thicknesses, but its
+            strength, screw holding and edge behavior differ from MDF. For
+            accurate ordering, always confirm both board size and thickness with
+            the supplier before purchasing. Use this calculator for sheet count,
+            layout planning and waste estimation, then compare the result with
+            your drawing, hardware needs and the real cutting method used in
+            your workshop.
+          </p>
+        </article>
+      </section>
     </main>
 
-    <script src="script.js"></script>
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <div>
+          <strong>Wood Sheet Calculator by Eggy Studio</strong>
+          <p>
+            A fast, practical planning tool for carpenters, cabinet makers and
+            woodworking workshops. Always confirm final measurements before
+            cutting material.
+          </p>
+        </div>
+        <div class="footer-links">
+          <a href="guide.html">Guide</a>
+          <a href="about.html">About</a>
+          <a href="contact.html">Contact</a>
+          <a href="privacy-policy.html">Privacy</a>
+          <a href="terms-of-service.html">Terms</a>
+          <a href="disclaimer.html">Disclaimer</a>
+        </div>
+      </div>
+    </footer>
+
+    <script src="script.js" defer></script>
   </body>
 </html>

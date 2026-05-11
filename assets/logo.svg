@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="320" viewBox="0 0 1200 320" role="img" aria-labelledby="title desc">
+  <title id="title">Eggy Studio logo</title>
+  <desc id="desc">Eggy Studio wordmark with a sheet layout icon.</desc>
+  <rect width="1200" height="320" rx="38" fill="#253025"/>
+  <g transform="translate(70 58)">
+    <rect x="0" y="0" width="154" height="204" rx="18" fill="#fffdf8"/>
+    <rect x="18" y="22" width="53" height="72" rx="8" fill="#0f766e"/>
+    <rect x="83" y="22" width="53" height="72" rx="8" fill="#f1c27d"/>
+    <rect x="18" y="108" width="118" height="32" rx="8" fill="#dce8d4"/>
+    <rect x="18" y="154" width="82" height="28" rx="8" fill="#f2d399"/>
+    <path d="M154 26h24c21 0 38 17 38 38v116c0 21-17 38-38 38h-24V26Z" fill="#0f766e"/>
+  </g>
+  <text x="330" y="135" fill="#fffdf8" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="72" font-weight="800" letter-spacing="0">Eggy Studio</text>
+  <text x="333" y="200" fill="#e6dbc9" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="32" font-weight="600" letter-spacing="0">Wood Sheet Calculator</text>
+</svg>
