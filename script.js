@@ -26,8 +26,6 @@ const els = {
   stockWidth: document.getElementById("stock-width"),
   stockCount: document.getElementById("stock-count"),
   pieceMaterial: document.getElementById("piece-material"),
-  pieceLength: document.getElementById("piece-length"),
-  pieceWidth: document.getElementById("piece-width"),
   pieceQty: document.getElementById("piece-qty"),
   unitSelect: document.getElementById("unit-select"),
   stockBody: document.querySelector("#stock-table tbody"),
@@ -62,7 +60,7 @@ document.getElementById("stock-material-picker").addEventListener("change", (eve
 for (const id of ["estimate-length", "estimate-width", "kerf"]) document.getElementById(id).addEventListener("input", invalidateResult);
 renderStockTable();
 renderPieceTable();
-for (const id of ["piece-length", "piece-width", "piece-direction", "piece-material", "estimate-length", "estimate-width"]) {
+for (const id of ["piece-length-feet", "piece-length-inches", "piece-length-sootar", "piece-width-feet", "piece-width-inches", "piece-width-sootar", "piece-direction", "piece-material", "estimate-length", "estimate-width"]) {
   document.getElementById(id).addEventListener("input", renderPiecePreview);
   document.getElementById(id).addEventListener("change", renderPiecePreview);
 }
@@ -95,7 +93,7 @@ function onUnitChange() {
   const oldUnit = currentUnit;
   currentUnit = els.unitSelect.value;
   renderUnitMenu();
-  for (const id of ["stock-length", "stock-width", "piece-length", "piece-width", "estimate-length", "estimate-width"]) {
+  for (const id of ["stock-length", "stock-width", "estimate-length", "estimate-width"]) {
     const input = document.getElementById(id);
     if (input.value) input.value = Number((Number(input.value) * unitConfig[oldUnit].toMm / unitConfig[currentUnit].toMm).toFixed(6));
   }
@@ -133,11 +131,11 @@ function onAddStock() {
 
 function onAddPiece() {
   const material = cleanText(els.pieceMaterial.value);
-  const length = toMm(parsePositive(els.pieceLength.value));
-  const width = toMm(parsePositive(els.pieceWidth.value));
+  const length = readPieceDimension("length");
+  const width = readPieceDimension("width");
   const qty = parseWholeNumber(els.pieceQty.value);
 
-  if (!material || !length || !width || !qty) {
+  if (!material || !Number.isFinite(length) || length <= 0 || !Number.isFinite(width) || width <= 0 || !qty) {
     alert("Please fill all piece fields with valid positive values.");
     return;
   }
@@ -915,8 +913,9 @@ function clearStockInputs() {
 
 function clearPieceInputs() {
   if (!document.getElementById("stock-material-picker").value) els.pieceMaterial.value = "";
-  els.pieceLength.value = "";
-  els.pieceWidth.value = "";
+  for (const dimension of ["length", "width"]) {
+    for (const part of ["feet", "inches", "sootar"]) document.getElementById(`piece-${dimension}-${part}`).value = "";
+  }
   els.pieceQty.value = "";
   renderPiecePreview();
 }
@@ -1005,9 +1004,9 @@ function offcutValue(sheets) {
 
 function renderPiecePreview() {
   const horizontal = document.getElementById("piece-direction").value === "horizontal";
-  const length = toMm(parsePositive(els.pieceLength.value));
-  const width = toMm(parsePositive(els.pieceWidth.value));
-  const complete = length > 0 && width > 0;
+  const length = readPieceDimension("length");
+  const width = readPieceDimension("width");
+  const complete = Number.isFinite(length) && Number.isFinite(width) && length > 0 && width > 0;
   const across = horizontal ? length : width;
   const down = horizontal ? width : length;
   const matching = stockItems.filter(s => materialKey(s.material) === materialKey(els.pieceMaterial.value));
@@ -1017,8 +1016,8 @@ function renderPiecePreview() {
   };
   const validSheet = sheet.length > 0 && sheet.width > 0;
   const fits = validSheet && across <= sheet.width && down <= sheet.length;
-  const demoLength = length || (validSheet ? sheet.length * .45 : 3 * MM_PER_FOOT);
-  const demoWidth = width || (validSheet ? sheet.width * .55 : 1.5 * MM_PER_FOOT);
+  const demoLength = (Number.isFinite(length) && length > 0 ? length : 0) || (validSheet ? sheet.length * .45 : 3 * MM_PER_FOOT);
+  const demoWidth = (Number.isFinite(width) && width > 0 ? width : 0) || (validSheet ? sheet.width * .55 : 1.5 * MM_PER_FOOT);
   const pw = horizontal ? demoLength : demoWidth;
   const ph = horizontal ? demoWidth : demoLength;
   const sw = validSheet ? sheet.width : 4 * MM_PER_FOOT;
@@ -1029,8 +1028,8 @@ function renderPiecePreview() {
   const sideName = horizontal ? "Width" : "Length";
   const topColor = horizontal ? "#0f766e" : "#a36113";
   const sideColor = horizontal ? "#a36113" : "#0f766e";
-  const lengthLabel = length ? `${formatDim(length)} ${unitLabel()}` : "enter length";
-  const widthLabel = width ? `${formatDim(width)} ${unitLabel()}` : "enter width";
+  const lengthLabel = Number.isFinite(length) && length > 0 ? `${formatDim(length)} ${unitLabel()}` : "enter length";
+  const widthLabel = Number.isFinite(width) && width > 0 ? `${formatDim(width)} ${unitLabel()}` : "enter width";
   const topLabel = `${topName}: ${horizontal ? lengthLabel : widthLabel}`;
   const sideLabel = `${sideName}: ${horizontal ? widthLabel : lengthLabel}`;
   document.getElementById("piece-preview-diagram").innerHTML = `<svg viewBox="0 0 360 245" role="img" aria-label="${escapeHtml(topLabel + ' across; ' + sideLabel + ' down')}">
@@ -1053,4 +1052,14 @@ function renderPiecePreview() {
     : !fits ? "This piece does not fit the selected material’s sheet sizes in this direction. Change dimensions or direction."
     : matching.length ? `Fits matching stock. Preview uses ${formatDim(sh)} × ${formatDim(sw)} ${unitLabel()}${matching.length > 1 ? '; other stock sizes may also be used in the final plan' : ''}.`
     : "Fits the estimate sheet. This previews one piece; the final plan also allows for saw kerf.";
+}
+
+function readPieceDimension(dimension) {
+  const values = ["feet", "inches", "sootar"].map(part => {
+    const input = document.getElementById(`piece-${dimension}-${part}`);
+    if (input.validity && input.validity.badInput) return NaN;
+    const value = input.value.trim() === "" ? 0 : Number(input.value);
+    return Number.isFinite(value) && value >= 0 ? value : NaN;
+  });
+  return values[0] * MM_PER_FOOT + values[1] * 25.4 + values[2] * (25.4 / 8);
 }

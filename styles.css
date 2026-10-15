@@ -843,3 +843,15 @@ html {scroll-behavior:smooth}
 #calculator {scroll-margin-top:90px}
 @media (max-width:760px) {#calculator {scroll-margin-top:170px}}
 @media (prefers-reduced-motion:reduce) {html {scroll-behavior:auto}}
+
+/* Compact compound dimensions: three explicit units per dimension. */
+.piece-grid > .material-field {grid-column:1;grid-row:1}
+.piece-grid > label {grid-column:2;grid-row:1;align-content:start}
+.dimension-inputs {min-width:0;margin:0;padding:10px;border:1px solid var(--border);border-radius:8px;background:#faf9f3}
+.dimension-inputs legend {padding:0 5px;font-size:13px;font-weight:700;color:var(--primary-dark)}
+.dimension-width legend {color:#a36113}
+.dimension-parts {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.dimension-parts label {font-size:11px;gap:5px}
+.dimension-parts input {min-width:0;padding:8px 6px;min-height:38px;font-size:13px}
+.dimension-help {margin:0 0 10px}
+@media(max-width:560px){.dimension-inputs{grid-column:1/-1}.dimension-parts{gap:8px}.dimension-parts input{min-height:40px}}

@@ -157,20 +157,29 @@
               Material
               <select id="stock-material-picker" hidden aria-label="Choose stock material"><option value="">New material / estimate</option></select><details class="material-picker" id="material-menu"><summary aria-label="Choose stock material"><span id="material-selection">New material / estimate</span><span aria-hidden="true">⌄</span></summary><div id="material-options" class="material-options" role="group" aria-label="Materials"></div></details><input id="piece-material" type="text" placeholder="Material name, e.g. MDF" />
             </div>
-            <label>
-              Piece Length
-              <input id="piece-length" type="number" min="0.01" step="any" placeholder="2.5" />
-            </label>
-            <label>
-              Piece Width
-              <input id="piece-width" type="number" min="0.01" step="any" placeholder="1.5" />
-            </label>
+            <fieldset class="dimension-inputs dimension-length">
+              <legend>Piece Length</legend>
+              <div class="dimension-parts">
+                <label>Feet<input id="piece-length-feet" aria-label="Piece length feet" type="number" inputmode="decimal" min="0" step="any" placeholder="0" /></label>
+                <label>Inches<input id="piece-length-inches" aria-label="Piece length inches" type="number" inputmode="decimal" min="0" step="any" placeholder="0" /></label>
+                <label>Sootar<input id="piece-length-sootar" aria-label="Piece length sootar" type="number" inputmode="decimal" min="0" step="any" placeholder="0" /></label>
+              </div>
+            </fieldset>
+            <fieldset class="dimension-inputs dimension-width">
+              <legend>Piece Width</legend>
+              <div class="dimension-parts">
+                <label>Feet<input id="piece-width-feet" aria-label="Piece width feet" type="number" inputmode="decimal" min="0" step="any" placeholder="0" /></label>
+                <label>Inches<input id="piece-width-inches" aria-label="Piece width inches" type="number" inputmode="decimal" min="0" step="any" placeholder="0" /></label>
+                <label>Sootar<input id="piece-width-sootar" aria-label="Piece width sootar" type="number" inputmode="decimal" min="0" step="any" placeholder="0" /></label>
+              </div>
+            </fieldset>
             <label>
               Count
               <input id="piece-qty" type="number" min="1" step="1" placeholder="6" />
             </label>
           </div>
 
+          <p class="form-help dimension-help">Piece inputs always use feet + inches + sootar. 12 inches = 1 foot · 8 sootar = 1 inch. Leave unused boxes blank. The measurement menu controls stock inputs and displayed results.</p>
           <label class="direction-control">Required pattern direction
             <select id="piece-direction"><option value="vertical">↕ Vertical — length along sheet grain</option><option value="horizontal">↔ Horizontal — width along sheet grain</option></select>
           </label>
@@ -240,9 +249,7 @@
             material. Start by choosing the measurement unit at the top of the
             page. If your workshop works in feet, select feet. If your drawing
             or cutting list is in millimeters, select millimeters before you
-            enter sizes. Every stock sheet and every required piece will be
-            measured in that selected unit, which helps prevent mistakes caused
-            by mixing feet, inches and metric dimensions.
+            enter sizes. Stock inputs and results use the selected unit. Piece dimensions use separate feet, inches and sootar boxes: 8 sootar equals 1 inch. Leave unused boxes blank.
           </p>
           <p>
             If you already have material in stock, add it first. Enter the sheet

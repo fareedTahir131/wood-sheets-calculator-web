@@ -36,3 +36,15 @@ for(const sheet of example.sheets) for(const a of sheet.freeRects) {
 }
 console.log('Passed: direction locks, kerf, stock limits, units, 80 randomized cases, and continuous-remnant regression.');
 `,ctx);
+
+const dimensionValues = {};
+ctx.document.getElementById = id => ({value: dimensionValues[id] ?? '', validity: {badInput: false}});
+Object.assign(dimensionValues, {'piece-length-feet':'2','piece-length-inches':'6','piece-length-sootar':'4'});
+assert.ok(Math.abs(vm.runInContext('readPieceDimension("length")',ctx)-774.7)<1e-8);
+dimensionValues['piece-length-feet']='';dimensionValues['piece-length-inches']='';dimensionValues['piece-length-sootar']='8';
+assert.ok(Math.abs(vm.runInContext('readPieceDimension("length")',ctx)-25.4)<1e-8);
+vm.runInContext('currentUnit="m"',ctx);
+assert.ok(Math.abs(vm.runInContext('readPieceDimension("length")',ctx)-25.4)<1e-8);
+dimensionValues['piece-length-sootar']='-1';
+assert.ok(Number.isNaN(vm.runInContext('readPieceDimension("length")',ctx)));
+console.log('Passed: compound dimensions, blank fields, sootar conversion, unit independence, negative validation.');
