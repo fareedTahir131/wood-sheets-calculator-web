@@ -17,6 +17,8 @@ const unitConfig = {
 
 let currentUnit = "ft";
 let lastResult = null;
+let packingStrategy = 0;
+let kerfMm = 3;
 
 const els = {
   stockMaterial: document.getElementById("stock-material"),
@@ -44,6 +46,7 @@ const els = {
 };
 
 els.unitSelect.value = currentUnit;
+renderUnitMenu();
 els.addStock.addEventListener("click", onAddStock);
 els.addPiece.addEventListener("click", onAddPiece);
 els.calculate.addEventListener("click", onCalculate);
@@ -51,15 +54,56 @@ els.loadDemo.addEventListener("click", onLoadDemo);
 els.clearAll.addEventListener("click", onClearAll);
 els.unitSelect.addEventListener("change", onUnitChange);
 
+document.getElementById("stock-material-picker").addEventListener("change", (event) => {
+  els.pieceMaterial.value = event.target.value;
+  els.pieceMaterial.hidden = !!event.target.value;
+  renderPiecePreview();
+});
+for (const id of ["estimate-length", "estimate-width", "kerf"]) document.getElementById(id).addEventListener("input", invalidateResult);
 renderStockTable();
 renderPieceTable();
+for (const id of ["piece-length", "piece-width", "piece-direction", "piece-material", "estimate-length", "estimate-width"]) {
+  document.getElementById(id).addEventListener("input", renderPiecePreview);
+  document.getElementById(id).addEventListener("change", renderPiecePreview);
+}
+renderPiecePreview();
+
+document.addEventListener("click", event => {
+  const menu = document.getElementById("material-menu");
+  if (!menu.contains(event.target)) menu.open = false;
+});
+document.getElementById("material-menu").addEventListener("keydown", event => {
+  if (event.key === "Escape") {
+    event.currentTarget.open = false;
+    event.currentTarget.querySelector("summary").focus();
+  }
+});
+
+document.addEventListener("click", event => {
+  const menu = document.getElementById("unit-menu");
+  if (!menu.contains(event.target)) menu.open = false;
+});
+document.getElementById("unit-menu").addEventListener("keydown", event => {
+  if (event.key === "Escape") {
+    event.currentTarget.open = false;
+    event.currentTarget.querySelector("summary").focus();
+  }
+});
 
 function onUnitChange() {
+  const savedResult = lastResult;
+  const oldUnit = currentUnit;
   currentUnit = els.unitSelect.value;
+  renderUnitMenu();
+  for (const id of ["stock-length", "stock-width", "piece-length", "piece-width", "estimate-length", "estimate-width"]) {
+    const input = document.getElementById(id);
+    if (input.value) input.value = Number((Number(input.value) * unitConfig[oldUnit].toMm / unitConfig[currentUnit].toMm).toFixed(6));
+  }
   renderStockTable();
   renderPieceTable();
 
-  if (lastResult) {
+  if (savedResult) {
+    lastResult = savedResult;
     renderResults(lastResult);
   }
 }
@@ -104,6 +148,7 @@ function onAddPiece() {
     length,
     width,
     qty,
+    direction: document.getElementById("piece-direction").value,
   });
 
   clearPieceInputs();
@@ -116,6 +161,12 @@ function onCalculate() {
     return;
   }
 
+  const length = toMm(parsePositive(document.getElementById("estimate-length").value));
+  const width = toMm(parsePositive(document.getElementById("estimate-width").value));
+  kerfMm = Number(document.getElementById("kerf").value);
+  if (!length || !width || !Number.isFinite(kerfMm) || kerfMm < 0) return alert("Enter positive estimate dimensions and a non-negative kerf.");
+  if (pieceItems.reduce((sum, p) => sum + p.qty, 0) > 2000) return alert("Please plan at most 2,000 pieces at a time.");
+  DEFAULT_SHEET.length = length; DEFAULT_SHEET.width = width;
   lastResult = planCutting(stockItems, pieceItems);
   renderResults(lastResult);
 }
@@ -156,13 +207,27 @@ function onClearAll() {
   els.layouts.innerHTML = "";
 }
 
+function invalidateResult() {
+  lastResult = null;
+  els.results.classList.add("hidden");
+}
 function renderStockTable() {
+  invalidateResult();
+  const picker = document.getElementById("stock-material-picker");
+  const previous = picker.value;
+  const names = [...new Map(stockItems.map(s => [materialKey(s.material), s.material])).values()];
+  picker.innerHTML = '<option value="">New material / estimate</option>' + names.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
+  picker.value = names.includes(previous) ? previous : (names[0] || "");
+  els.pieceMaterial.hidden = !!picker.value;
+  if (picker.value) els.pieceMaterial.value = picker.value;
+  renderMaterialMenu();
+  renderPiecePreview();
   els.stockBody.innerHTML = "";
 
   if (!stockItems.length) {
     els.stockBody.innerHTML = `
       <tr>
-        <td class="empty-row" colspan="4">No stock added. Calculator will use assumed ${formatDim(DEFAULT_SHEET.length)} x ${formatDim(DEFAULT_SHEET.width)} ${unitLabel()} sheets.</td>
+        <td class="empty-row" colspan="4">No stock added. Enter pieces and configure the estimate sheet size below.</td>
       </tr>
     `;
     return;
@@ -189,6 +254,7 @@ function renderStockTable() {
 }
 
 function renderPieceTable() {
+  invalidateResult();
   els.pieceBody.innerHTML = "";
 
   if (!pieceItems.length) {
@@ -204,7 +270,7 @@ function renderPieceTable() {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${escapeHtml(item.material)}</td>
-      <td>${formatDim(item.length)} x ${formatDim(item.width)} ${unitLabel()}</td>
+      <td>${formatDim(item.length)} x ${formatDim(item.width)} ${unitLabel()}<br><small>${item.direction === "horizontal" ? "↔ Horizontal" : "↕ Vertical"}</small></td>
       <td>${item.qty}</td>
       <td><button class="btn" type="button" data-remove-piece="${item.id}">Remove</button></td>
     `;
@@ -221,6 +287,22 @@ function renderPieceTable() {
 }
 
 function planCutting(stocks, pieces) {
+  const combined = { summary: [], sheets: [], warnings: [], totals: {materials: 0, sheetsUsed: 0, piecesRequired: 0, piecesPlaced: 0} };
+  for (const group of groupBy(pieces, p => materialKey(p.material)).values()) {
+    let best;
+    const quantity = group.reduce((sum, piece) => sum + piece.qty, 0);
+    const passes = quantity <= 100 ? 120 : 36;
+    for (packingStrategy = 0; packingStrategy < passes; packingStrategy++) {
+      const candidate = planPass(stocks, group);
+      const score = [candidate.totals.piecesRequired - candidate.totals.piecesPlaced, candidate.totals.sheetsUsed, candidate.sheets.reduce((a, s) => a + s.length * s.width, 0), -offcutValue(candidate.sheets), -reusableArea(candidate.sheets), -remnantUtility(candidate.sheets), candidate.sheets.reduce((sum, sheet) => sum + sheet.freeRects.length, 0)];
+      if (!best || score.some((v, i) => v < best.score[i] && score.slice(0, i).every((x, j) => x === best.score[j]))) best = {result: candidate, score};
+    }
+    for (const key of ["summary", "sheets", "warnings"]) combined[key].push(...best.result[key]);
+    for (const key in combined.totals) combined.totals[key] += best.result.totals[key];
+  }
+  return combined;
+}
+function planPass(stocks, pieces) {
   const materialGroups = groupBy(pieces, (p) => materialKey(p.material));
   const sheets = [];
   const summary = [];
@@ -249,8 +331,20 @@ function planCutting(stocks, pieces) {
       : matchingStock;
 
     const requiredUnits = expandPieces(matPieces)
-      .sort(sortPieces)
-      .map((piece, index) => ({ ...piece, material: materialName, pieceNo: index + 1 }));
+      .map((piece, i) => ({...piece, pieceNo: i + 1}))
+      .sort((a, b) => {
+        const order = Math.floor(packingStrategy / 6);
+        const metric = p => {
+          const dimensions = [p.length * p.width, p.direction === "horizontal" ? p.length : p.width, p.direction === "horizontal" ? p.width : p.length, Math.max(p.length, p.width), Math.min(p.length, p.width), p.length + p.width];
+          if (order < 6) return dimensions[order];
+          // Deterministic alternative orders explore layouts beyond largest-first.
+          let hash = Math.imul(p.pieceNo + 1, 374761393) ^ Math.imul(order + 1, 668265263);
+          hash = Math.imul(hash ^ (hash >>> 13), 1274126177);
+          return ((hash ^ (hash >>> 16)) >>> 0) / 4294967296;
+        };
+        return metric(b) - metric(a) || sortPieces(a, b);
+      })
+      .map((piece, index) => ({ ...piece, material: materialName, pieceNo: piece.pieceNo }));
 
     const activeSheets = [];
     const unplaced = [];
@@ -387,13 +481,12 @@ function choosePlacement(freeRects, piece) {
 
   for (let i = 0; i < freeRects.length; i += 1) {
     const rect = freeRects[i];
-    const options = [
-      { width: piece.width, height: piece.length, rotated: false },
-      { width: piece.length, height: piece.width, rotated: true },
-    ];
+    const options = piece.direction === "horizontal"
+      ? [{width: piece.length, height: piece.width, rotated: true}]
+      : [{width: piece.width, height: piece.length, rotated: false}];
 
     for (const option of options) {
-      if (option.width <= rect.width && option.height <= rect.height) {
+      if (option.width <= rect.width + 1e-7 && option.height <= rect.height + 1e-7) {
         const waste = rect.width * rect.height - option.width * option.height;
         const shortSideWaste = Math.min(rect.width - option.width, rect.height - option.height);
         const score = waste + shortSideWaste;
@@ -426,25 +519,23 @@ function splitFreeRects(freeRects, rectIndex, placement) {
   const base = freeRects[rectIndex];
   const result = freeRects.filter((_, i) => i !== rectIndex);
 
-  const right = {
-    x: base.x + placement.width,
-    y: base.y,
-    width: base.width - placement.width,
-    height: placement.height,
-  };
-
-  const bottom = {
-    x: base.x,
-    y: base.y + placement.height,
-    width: base.width,
-    height: base.height - placement.height,
-  };
-
-  for (const rect of [right, bottom]) {
-    if (rect.width > 0.5 && rect.height > 0.5) {
-      result.push(rect);
-    }
+  const dx = Math.min(base.width, placement.width + kerfMm);
+  const dy = Math.min(base.height, placement.height + kerfMm);
+  const splitMode = packingStrategy % 6;
+  // Mixed cut passes preserve a continuous side strip below a wider first piece.
+  let verticalSplit = splitMode === 1 || (splitMode === 2 && base.y > 1e-7) || (splitMode === 3 && base.y < 1e-7);
+  if (splitMode >= 4) {
+    const utility = (w, h) => {
+      const area = Math.max(0, w) * Math.max(0, h);
+      return splitMode === 4 ? area * area : area * Math.min(w, h);
+    };
+    const vertical = utility(base.width - dx, base.height) + utility(placement.width, base.height - dy);
+    const horizontal = utility(base.width - dx, placement.height) + utility(base.width, base.height - dy);
+    verticalSplit = vertical > horizontal;
   }
+  const right = {x: base.x + dx, y: base.y, width: base.width - dx, height: verticalSplit ? base.height : placement.height};
+  const bottom = {x: base.x, y: base.y + dy, width: verticalSplit ? placement.width : base.width, height: base.height - dy};
+  for (const rect of [right, bottom]) if (rect.width > 1e-7 && rect.height > 1e-7) result.push(rect);
 
   return pruneContainedRectangles(result);
 }
@@ -483,7 +574,7 @@ function renderSummary(result) {
   const overview = [
     {
       number: result.totals.sheetsUsed,
-      label: `total sheet${result.totals.sheetsUsed === 1 ? "" : "s"} required`,
+      label: `sheet${result.totals.sheetsUsed === 1 ? "" : "s"} in this plan`,
     },
     {
       number: result.totals.piecesPlaced,
@@ -541,8 +632,8 @@ function renderWarnings(warnings) {
 
 function renderLegend() {
   const items = [
-    ["Cut pieces", "hsl(174 54% 78%)"],
-    ["Reusable remaining area", "var(--remaining)"],
+    ["↕ Vertical / ↔ Horizontal pieces", "#c8ae8b"],
+    ["Potentially reusable offcut", "var(--remaining)"],
     ["Waste / narrow offcut", "var(--waste)"],
   ];
 
@@ -597,7 +688,7 @@ function buildSheetNode(sheet, index) {
     </div>
     <div class="sheet-stats">
       ${sheet.placements.length} cut piece${sheet.placements.length === 1 ? "" : "s"}<br>
-      ${usedPct}% used
+      ${usedPct}% used<br>${(100 - Number(usedPct)).toFixed(1)}% offcut / kerf
     </div>
   `;
 
@@ -633,6 +724,10 @@ function buildSheetNode(sheet, index) {
   wrap.appendChild(canvas);
   container.appendChild(title);
   container.appendChild(wrap);
+  const details = document.createElement("details");
+  details.className = "cut-list";
+  details.innerHTML = `<summary>Cut list & offcuts · ${sheet.placements.length} pieces</summary><ul>${sheet.placements.map(p => `<li><b>P${p.pieceNo} ${p.rotated ? "↔" : "↕"}</b> ${formatDim(p.sourceLength)} × ${formatDim(p.sourceWidth)} ${unitLabel()} · ${p.rotated ? "Horizontal" : "Vertical"}</li>`).join("")}${sheet.freeRects.map(r => `<li>Offcut: ${formatDim(r.height)} × ${formatDim(r.width)} ${unitLabel()}</li>`).join("")}</ul>`;
+  container.appendChild(details);
   return container;
 }
 
@@ -640,16 +735,28 @@ function buildPieceNode(placement, index, scale) {
   const block = document.createElement("div");
   block.className = "piece";
   setRectStyles(block, placement, scale);
-  block.style.background = colorForIndex(index);
+  block.classList.add(placement.rotated ? "horizontal-pattern" : "vertical-pattern");
+  block.style.setProperty("--piece-color", colorForIndex(placement.pieceNo));
+  const texture = document.createElement("div");
+  texture.className = "piece-texture";
+  // Use one physical texture scale for all pieces, independent of their aspect ratio.
+  // CSS auto height preserves the original 1000:1713 image ratio; excess is cropped.
+  texture.style.backgroundSize = `${4 * MM_PER_FOOT * scale}px auto`;
+  const w = placement.width * scale, h = placement.height * scale;
+  texture.style.width = `${placement.rotated ? h : w}px`;
+  texture.style.height = `${placement.rotated ? w : h}px`;
+  if (placement.rotated) texture.style.transform = "translate(-50%, -50%) rotate(90deg)";
 
-  const readable = placement.width * scale >= 64 && placement.height * scale >= 36;
+  const readable = placement.width * scale >= 42 && placement.height * scale >= 36;
   block.innerHTML = `
     <span class="rect-label${readable ? "" : " tiny-label"}">
-      Piece ${placement.pieceNo}<br>
+      P${placement.pieceNo} ${placement.rotated ? "↔" : "↕"}<br>
       ${formatDim(placement.sourceLength)} x ${formatDim(placement.sourceWidth)} ${unitLabel()}
     </span>
   `;
-  block.title = `Piece ${placement.pieceNo}: ${formatDim(placement.sourceLength)} x ${formatDim(placement.sourceWidth)} ${unitLabel()}${placement.rotated ? " (rotated on sheet)" : ""}`;
+  block.prepend(texture);
+  if (!readable) block.querySelector("span").textContent = `P${placement.pieceNo}`;
+  block.title = `Piece ${placement.pieceNo}: ${formatDim(placement.sourceLength)} x ${formatDim(placement.sourceWidth)} ${unitLabel()}${placement.rotated ? " — Horizontal" : " — Vertical"}`;
   return block;
 }
 
@@ -684,14 +791,14 @@ function setRectStyles(node, rect, scale) {
 }
 
 function getCanvasSize(sheet) {
-  const maxWidth = Math.min(760, Math.max(280, window.innerWidth - 76));
-  const maxHeight = 620;
+  const maxWidth = Math.min(230, Math.max(120, window.innerWidth - 150));
+  const maxHeight = 300;
   const scale = Math.min(maxWidth / sheet.width, maxHeight / sheet.length);
 
   return {
     scale,
-    width: Math.max(180, sheet.width * scale),
-    height: Math.max(300, sheet.length * scale),
+    width: sheet.width * scale,
+    height: sheet.length * scale,
   };
 }
 
@@ -705,7 +812,7 @@ function isWasteRect(rect, sheet) {
 function buildUnplacedWarnings(materialName, unplaced, usesAssumedSheet) {
   const warnings = [];
   const grouped = groupBy(unplaced, (piece) => `${piece.length}x${piece.width}`);
-  const reason = usesAssumedSheet ? "larger than the assumed sheet" : "too large for the stock sheet or stock quantity is not enough";
+  const reason = usesAssumedSheet ? "unable to fit the estimate sheet in its required direction" : "unable to fit in its required direction or stock quantity is not enough";
 
   for (const [dim, list] of grouped.entries()) {
     const [length, width] = dim.split("x").map(Number);
@@ -721,7 +828,7 @@ function expandPieces(items) {
   const all = [];
   for (const item of items) {
     for (let i = 0; i < item.qty; i += 1) {
-      all.push({ length: item.length, width: item.width });
+      all.push({ length: item.length, width: item.width, direction: item.direction || "vertical" });
     }
   }
   return all;
@@ -784,7 +891,7 @@ function fromMm(value) {
 function formatDim(mmValue) {
   const converted = fromMm(mmValue);
   const precision = unitConfig[currentUnit].precision;
-  return converted.toFixed(precision).replace(/\.?0+$/, "");
+  return String(Number(converted.toFixed(precision)));
 }
 
 function unitLabel() {
@@ -801,16 +908,17 @@ function cleanText(value) {
 
 function clearStockInputs() {
   els.stockMaterial.value = "";
-  els.stockLength.value = "";
-  els.stockWidth.value = "";
+  els.stockLength.value = Number((8 * MM_PER_FOOT / unitConfig[currentUnit].toMm).toFixed(6));
+  els.stockWidth.value = Number((4 * MM_PER_FOOT / unitConfig[currentUnit].toMm).toFixed(6));
   els.stockCount.value = "";
 }
 
 function clearPieceInputs() {
-  els.pieceMaterial.value = "";
+  if (!document.getElementById("stock-material-picker").value) els.pieceMaterial.value = "";
   els.pieceLength.value = "";
   els.pieceWidth.value = "";
   els.pieceQty.value = "";
+  renderPiecePreview();
 }
 
 function makeId() {
@@ -825,4 +933,124 @@ function escapeHtml(input) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function renderMaterialMenu() {
+  const picker = document.getElementById("stock-material-picker");
+  const menu = document.getElementById("material-menu");
+  document.getElementById("material-selection").textContent = picker.selectedOptions[0].textContent;
+  const options = document.getElementById("material-options");
+  options.replaceChildren();
+  for (const option of picker.options) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = option.textContent;
+    button.setAttribute("aria-label", option.textContent);
+    button.setAttribute("aria-pressed", String(option.selected));
+    button.addEventListener("click", () => {
+      picker.value = option.value;
+      picker.dispatchEvent(new Event("change"));
+      renderMaterialMenu();
+      menu.open = false;
+      menu.querySelector("summary").focus();
+    });
+    options.appendChild(button);
+  }
+}
+
+function renderUnitMenu() {
+  const picker = els.unitSelect;
+  const menu = document.getElementById("unit-menu");
+  document.getElementById("unit-selection").textContent = picker.selectedOptions[0].textContent;
+  const options = document.getElementById("unit-options");
+  options.replaceChildren();
+  for (const option of picker.options) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = option.textContent;
+    button.setAttribute("aria-label", option.textContent);
+    button.setAttribute("aria-pressed", String(option.selected));
+    button.addEventListener("click", () => {
+      picker.value = option.value;
+      picker.dispatchEvent(new Event("change"));
+      menu.open = false;
+      menu.querySelector("summary").focus();
+    });
+    options.appendChild(button);
+  }
+}
+
+function remnantUtility(sheets) {
+  return sheets.reduce((total, sheet) => total + sheet.freeRects.reduce((sum, rect) => {
+    const area = rect.width * rect.height;
+    // Concentrate unused area into substantial rectangles, discounting narrow strips.
+    // A useful width is relative to this sheet, with a three-inch minimum.
+    const usefulWidth = Math.max(3 * 25.4, Math.min(sheet.width, sheet.length) * 0.1);
+    const widthWeight = Math.min(1, Math.min(rect.width, rect.height) / usefulWidth);
+    return sum + area * area * widthWeight * widthWeight;
+  }, 0), 0);
+}
+
+function reusableArea(sheets) {
+  return sheets.reduce((total, sheet) => total + sheet.freeRects.reduce((sum, rect) =>
+    sum + (isWasteRect(rect, sheet) ? 0 : rect.width * rect.height), 0), 0);
+}
+
+function offcutValue(sheets) {
+  // Balance recoverable area with concentration: a single substantial remnant
+  // is more valuable than the same area split into many small rectangles.
+  const remaining = sheets.reduce((sum, sheet) => sum + sheet.freeRects.reduce((area, rect) => area + rect.width * rect.height, 0), 0);
+  return reusableArea(sheets) + (remaining ? 8 * remnantUtility(sheets) / remaining : 0);
+}
+
+function renderPiecePreview() {
+  const horizontal = document.getElementById("piece-direction").value === "horizontal";
+  const length = toMm(parsePositive(els.pieceLength.value));
+  const width = toMm(parsePositive(els.pieceWidth.value));
+  const complete = length > 0 && width > 0;
+  const across = horizontal ? length : width;
+  const down = horizontal ? width : length;
+  const matching = stockItems.filter(s => materialKey(s.material) === materialKey(els.pieceMaterial.value));
+  const sheet = matching.find(s => across <= s.width && down <= s.length) || matching[0] || {
+    length: toMm(parsePositive(document.getElementById("estimate-length").value)),
+    width: toMm(parsePositive(document.getElementById("estimate-width").value))
+  };
+  const validSheet = sheet.length > 0 && sheet.width > 0;
+  const fits = validSheet && across <= sheet.width && down <= sheet.length;
+  const demoLength = length || (validSheet ? sheet.length * .45 : 3 * MM_PER_FOOT);
+  const demoWidth = width || (validSheet ? sheet.width * .55 : 1.5 * MM_PER_FOOT);
+  const pw = horizontal ? demoLength : demoWidth;
+  const ph = horizontal ? demoWidth : demoLength;
+  const sw = validSheet ? sheet.width : 4 * MM_PER_FOOT;
+  const sh = validSheet ? sheet.length : 8 * MM_PER_FOOT;
+  const scale = Math.min(210 / Math.max(sw, pw), 175 / Math.max(sh, ph));
+  const x = 72, y = 40, w = pw * scale, h = ph * scale;
+  const topName = horizontal ? "Length" : "Width";
+  const sideName = horizontal ? "Width" : "Length";
+  const topColor = horizontal ? "#0f766e" : "#a36113";
+  const sideColor = horizontal ? "#a36113" : "#0f766e";
+  const lengthLabel = length ? `${formatDim(length)} ${unitLabel()}` : "enter length";
+  const widthLabel = width ? `${formatDim(width)} ${unitLabel()}` : "enter width";
+  const topLabel = `${topName}: ${horizontal ? lengthLabel : widthLabel}`;
+  const sideLabel = `${sideName}: ${horizontal ? widthLabel : lengthLabel}`;
+  document.getElementById("piece-preview-diagram").innerHTML = `<svg viewBox="0 0 360 245" role="img" aria-label="${escapeHtml(topLabel + ' across; ' + sideLabel + ' down')}">
+    <rect x="${x}" y="${y}" width="${sw*scale}" height="${sh*scale}" fill="#edf1e7" stroke="#9ba88e" stroke-width="1.5"/>
+    <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${complete && !fits ? '#fce4df' : '#cce3db'}" stroke="${complete && !fits ? '#a83232' : '#0f766e'}" stroke-width="2" ${complete ? '' : 'stroke-dasharray="5 4"'}/>
+    <text x="${x+w/2}" y="${y+h/2+5}" text-anchor="middle" fill="#25473e" font-size="18">${horizontal ? '↔' : '↕'}</text>
+    <path d="M ${x} 33 V 24 H ${x+w} V 33" fill="none" stroke="${topColor}" stroke-width="2"/>
+    <text x="${x+w/2}" y="16" text-anchor="middle" fill="${topColor}" font-size="12" font-weight="700">${topLabel}</text>
+    <path d="M 65 ${y} H 56 V ${y+h} H 65" fill="none" stroke="${sideColor}" stroke-width="2"/>
+    <text x="24" y="${y+h/2}" transform="rotate(-90 24 ${y+h/2})" text-anchor="middle" fill="${sideColor}" font-size="12" font-weight="700">${sideLabel}</text>
+    <text x="${x}" y="235" fill="#637083" font-size="11">Sheet: ${formatDim(sh)} length × ${formatDim(sw)} width ${unitLabel()} · grain ↕</text>
+  </svg>`;
+  const description = document.getElementById("piece-preview-description");
+  description.textContent = horizontal
+    ? `Horizontal: your length (${lengthLabel}) runs left to right; your width (${widthLabel}) runs top to bottom.`
+    : `Vertical: your length (${lengthLabel}) runs top to bottom; your width (${widthLabel}) runs left to right.`;
+  document.getElementById("piece-preview-sheet").textContent = !complete
+    ? "Enter both dimensions to see the exact size. Dashed outline is an example."
+    : !validSheet ? "Enter valid estimate sheet dimensions to check the fit."
+    : !fits ? "This piece does not fit the selected material’s sheet sizes in this direction. Change dimensions or direction."
+    : matching.length ? `Fits matching stock. Preview uses ${formatDim(sh)} × ${formatDim(sw)} ${unitLabel()}${matching.length > 1 ? '; other stock sizes may also be used in the final plan' : ''}.`
+    : "Fits the estimate sheet. This previews one piece; the final plan also allows for saw kerf.";
 }

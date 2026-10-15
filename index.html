@@ -6,7 +6,7 @@
     <title>Wood Sheet Calculator | MDF, Plywood & Chipboard Cutting Planner</title>
     <meta
       name="description"
-      content="Free Wood Sheet Calculator by Eggy Studio. Plan MDF, plywood, laminate and chipboard sheets, cutting layouts, stock use, waste and required pieces."
+      content="Free Wood Sheet Calculator. Plan MDF, plywood, laminate and chipboard sheets, cutting layouts, stock use, waste and required pieces."
     />
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <meta name="theme-color" content="#253025" />
@@ -34,7 +34,7 @@
         "operatingSystem": "Any",
         "publisher": {
           "@type": "Organization",
-          "name": "Eggy Studio"
+          "name": "Wood Sheet Calculator"
         },
         "description": "Wood Sheet Calculator helps carpenters calculate MDF, plywood, laminate and chipboard sheet requirements, cutting layouts, stock usage, waste pieces and remaining sheet area.",
         "featureList": [
@@ -58,7 +58,7 @@
       <nav class="nav-bar" aria-label="Primary navigation">
         <a class="brand" href="index.html" aria-label="Wood Sheet Calculator home">
           <img src="assets/favicon.svg" alt="" width="46" height="46" />
-          <div>Wood Sheet Calculator <span>by Eggy Studio</span></div>
+          <div>Wood Sheet Calculator </div>
         </a>
         <div class="nav-links">
           <a class="active" href="index.html">Home</a>
@@ -83,16 +83,17 @@
           <a class="btn" href="guide.html">Read Cutting Guides</a>
         </div>
       </div>
-      <label class="unit-control">
+      <div class="unit-control">
         Measurement unit
-        <select id="unit-select">
+        <select id="unit-select" hidden aria-label="Measurement unit">
           <option value="ft">Feet (ft)</option>
           <option value="in">Inches (in)</option>
           <option value="m">Meters (m)</option>
           <option value="cm">Centimeters (cm)</option>
           <option value="mm">Millimeters (mm)</option>
         </select>
-      </label>
+        <details class="material-picker unit-picker" id="unit-menu"><summary aria-label="Measurement unit"><span id="unit-selection">Feet (ft)</span><span aria-hidden="true">⌄</span></summary><div id="unit-options" class="material-options" role="group" aria-label="Measurement units"></div></details>
+      </div>
     </section>
 
     <main id="calculator">
@@ -103,7 +104,7 @@
               <p class="eyebrow">Optional</p>
               <h2>Sheet Stock</h2>
             </div>
-            <span class="pill">Leave empty to use 8 ft x 4 ft</span>
+            <span class="pill">Stock is optional</span>
           </div>
 
           <div class="form-grid stock-grid">
@@ -113,11 +114,11 @@
             </label>
             <label>
               Sheet Length
-              <input id="stock-length" type="number" min="0.01" step="any" placeholder="8" />
+              <input id="stock-length" value="8" type="number" min="0.01" step="any" placeholder="8" />
             </label>
             <label>
               Sheet Width
-              <input id="stock-width" type="number" min="0.01" step="any" placeholder="4" />
+              <input id="stock-width" value="4" type="number" min="0.01" step="any" placeholder="4" />
             </label>
             <label>
               Available Sheets
@@ -152,10 +153,10 @@
           </div>
 
           <div class="form-grid piece-grid">
-            <label>
+            <div class="material-field">
               Material
-              <input id="piece-material" type="text" placeholder="MDF" />
-            </label>
+              <select id="stock-material-picker" hidden aria-label="Choose stock material"><option value="">New material / estimate</option></select><details class="material-picker" id="material-menu"><summary aria-label="Choose stock material"><span id="material-selection">New material / estimate</span><span aria-hidden="true">⌄</span></summary><div id="material-options" class="material-options" role="group" aria-label="Materials"></div></details><input id="piece-material" type="text" placeholder="Material name, e.g. MDF" />
+            </div>
             <label>
               Piece Length
               <input id="piece-length" type="number" min="0.01" step="any" placeholder="2.5" />
@@ -170,7 +171,18 @@
             </label>
           </div>
 
+          <label class="direction-control">Required pattern direction
+            <select id="piece-direction"><option value="vertical">↕ Vertical — length along sheet grain</option><option value="horizontal">↔ Horizontal — width along sheet grain</option></select>
+          </label>
+          <p class="form-help">Sheet grain always runs top to bottom. Vertical places length down the sheet; horizontal places length across it. Your selection is locked, including square pieces. Texture arrows indicate the requested piece direction.</p>
           <button id="add-piece" class="btn btn-primary" type="button">Add Piece</button>
+
+          <section class="piece-preview" aria-label="Live piece dimension preview">
+            <div class="preview-heading"><strong>Live piece preview</strong><span>Sheet grain ↕</span></div>
+            <div id="piece-preview-diagram"></div>
+            <p id="piece-preview-description" aria-live="polite"></p>
+            <p id="piece-preview-sheet" class="form-help"></p>
+          </section>
 
           <div class="table-wrap">
             <table id="piece-table">
@@ -193,10 +205,10 @@
           <h2>Calculate Requirement</h2>
           <p>
             Matching stock is used first. Materials without stock are planned
-            on assumed 8 ft x 4 ft sheets.
+            using the estimate sheet size below. Matching stock quantities remain a hard limit.
           </p>
         </div>
-        <div class="action-buttons">
+        <div class="estimate-controls"><label>Estimate sheet length<input id="estimate-length" type="number" min="0.001" step="any" value="8"></label><label>Estimate sheet width<input id="estimate-width" type="number" min="0.001" step="any" value="4"></label><label>Saw kerf (mm)<input id="kerf" type="number" min="0" step="0.1" value="3"></label><p class="form-help">Estimate sizes apply to materials without stock. Default: 8 × 4 ft. Kerf is allowed between cuts.</p></div><div class="action-buttons">
           <button id="calculate" class="btn btn-calculate" type="button">Calculate Sheets</button>
           <button id="load-demo" class="btn" type="button">Load Demo</button>
           <button id="clear-all" class="btn btn-danger" type="button">Clear All</button>
@@ -214,7 +226,7 @@
         <div id="summary" class="summary"></div>
         <div id="warnings" class="warnings"></div>
         <div id="legend" class="legend"></div>
-        <div id="layouts" class="layouts"></div>
+        <p class="form-help">Multi-pass guillotine packing compares piece orders and cut directions. It prioritizes fitting pieces, fewer sheets, less material consumed, a balance of reusable leftover area and larger continuous offcuts. Small jobs compare 120 layouts; large jobs compare 36. Offcuts narrower than 3 inches or smaller than 3.5% of their sheet are treated as waste; a mathematical optimum is not guaranteed. Hatched areas are offcuts; thin gaps are saw kerf. Open a sheet’s cut list for every dimension.</p><div id="layouts" class="layouts"></div>
       </section>
 
       <section class="content-section" aria-label="MDF calculator guide">
@@ -244,7 +256,7 @@
           </p>
           <p>
             You can also use the calculator without adding stock. In that case,
-            each material is calculated on a standard 8 ft x 4 ft sheet. This is
+            each material uses your estimate sheet dimensions (initially 8 ft × 4 ft). This is
             helpful when you are preparing a quote, estimating a wardrobe or
             kitchen cabinet project, or comparing material requirements before
             visiting a supplier. Once you know the available sheet sizes at your
@@ -334,7 +346,7 @@
     <footer class="site-footer">
       <div class="footer-inner">
         <div>
-          <strong>Wood Sheet Calculator by Eggy Studio</strong>
+          <strong>Wood Sheet Calculator</strong>
           <p>
             A fast, practical planning tool for carpenters, cabinet makers and
             woodworking workshops. Always confirm final measurements before
