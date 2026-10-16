@@ -24,7 +24,7 @@
       content="Calculate sheet requirements, stock use, waste and visual cutting layouts."
     />
     <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=unit-help-1" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -160,17 +160,17 @@
             <fieldset class="dimension-inputs dimension-length">
               <legend>Piece Length</legend>
               <div class="dimension-parts">
-                <label>Feet<input id="piece-length-feet" aria-label="Piece length feet" type="number" inputmode="decimal" min="0" step="any" placeholder="0" /></label>
-                <label>Inches<input id="piece-length-inches" aria-label="Piece length inches" type="number" inputmode="decimal" min="0" step="any" placeholder="0" /></label>
-                <label>Sootar<input id="piece-length-sootar" aria-label="Piece length sootar" type="number" inputmode="decimal" min="0" step="any" placeholder="0" /></label>
+                <div class="unit-input"><div class="unit-caption"><label for="piece-length-feet">Feet</label><button type="button" class="unit-info" data-unit-info="feet" aria-label="About feet for piece length" aria-controls="unit-help-popup" aria-expanded="false"><span aria-hidden="true">i</span></button></div><input id="piece-length-feet" aria-label="Piece length feet" type="number" inputmode="decimal" min="0" step="any" placeholder="0" /></div>
+                <div class="unit-input"><div class="unit-caption"><label for="piece-length-inches">Inches</label><button type="button" class="unit-info" data-unit-info="inches" aria-label="About inches for piece length" aria-controls="unit-help-popup" aria-expanded="false"><span aria-hidden="true">i</span></button></div><input id="piece-length-inches" aria-label="Piece length inches" type="number" inputmode="decimal" min="0" step="any" placeholder="0" /></div>
+                <div class="unit-input"><div class="unit-caption"><label for="piece-length-sootar">Sootar</label><button type="button" class="unit-info" data-unit-info="sootar" aria-label="About sootar for piece length" aria-controls="unit-help-popup" aria-expanded="false"><span aria-hidden="true">i</span></button></div><input id="piece-length-sootar" aria-label="Piece length sootar" type="number" inputmode="decimal" min="0" step="any" placeholder="0" /></div>
               </div>
             </fieldset>
             <fieldset class="dimension-inputs dimension-width">
               <legend>Piece Width</legend>
               <div class="dimension-parts">
-                <label>Feet<input id="piece-width-feet" aria-label="Piece width feet" type="number" inputmode="decimal" min="0" step="any" placeholder="0" /></label>
-                <label>Inches<input id="piece-width-inches" aria-label="Piece width inches" type="number" inputmode="decimal" min="0" step="any" placeholder="0" /></label>
-                <label>Sootar<input id="piece-width-sootar" aria-label="Piece width sootar" type="number" inputmode="decimal" min="0" step="any" placeholder="0" /></label>
+                <div class="unit-input"><div class="unit-caption"><label for="piece-width-feet">Feet</label><button type="button" class="unit-info" data-unit-info="feet" aria-label="About feet for piece width" aria-controls="unit-help-popup" aria-expanded="false"><span aria-hidden="true">i</span></button></div><input id="piece-width-feet" aria-label="Piece width feet" type="number" inputmode="decimal" min="0" step="any" placeholder="0" /></div>
+                <div class="unit-input"><div class="unit-caption"><label for="piece-width-inches">Inches</label><button type="button" class="unit-info" data-unit-info="inches" aria-label="About inches for piece width" aria-controls="unit-help-popup" aria-expanded="false"><span aria-hidden="true">i</span></button></div><input id="piece-width-inches" aria-label="Piece width inches" type="number" inputmode="decimal" min="0" step="any" placeholder="0" /></div>
+                <div class="unit-input"><div class="unit-caption"><label for="piece-width-sootar">Sootar</label><button type="button" class="unit-info" data-unit-info="sootar" aria-label="About sootar for piece width" aria-controls="unit-help-popup" aria-expanded="false"><span aria-hidden="true">i</span></button></div><input id="piece-width-sootar" aria-label="Piece width sootar" type="number" inputmode="decimal" min="0" step="any" placeholder="0" /></div>
               </div>
             </fieldset>
             <label>
@@ -371,6 +371,10 @@
       </div>
     </footer>
 
-    <script src="script.js" defer></script>
+    <aside id="unit-help-popup" class="unit-help-popup" popover="manual" role="dialog" aria-labelledby="unit-help-title">
+      <div class="unit-help-heading"><strong id="unit-help-title"></strong><button type="button" id="unit-help-close" aria-label="Close measurement help">×</button></div>
+      <p id="unit-help-text"></p>
+    </aside>
+    <script src="script.js?v=unit-help-1" defer></script>
   </body>
 </html>

@@ -44,6 +44,7 @@ const els = {
 };
 
 els.unitSelect.value = currentUnit;
+setupUnitHelp();
 renderUnitMenu();
 els.addStock.addEventListener("click", onAddStock);
 els.addPiece.addEventListener("click", onAddPiece);
@@ -1137,4 +1138,57 @@ function fitDimensionLabel(block, rect, scale) {
     label.style.height = `${width}px`;
   }
   label.style.fontSize = Math.min(width, height) < 32 ? "8px" : "10px";
+}
+
+function setupUnitHelp() {
+  const popup = document.getElementById("unit-help-popup");
+  if (!popup) return;
+  const help = {
+    feet: ["Feet (ft)", "Feet measure the larger part of a dimension. 1 foot = 12 inches = 96 sootar. Example: enter 2 here for 2 feet."],
+    inches: ["Inches (in)", "Inches measure smaller lengths within a foot. 12 inches = 1 foot. Add inches to your feet value; for example, 2 feet + 6 inches = 2½ feet."],
+    sootar: ["Sootar", "Sootar measures fractions of an inch. 8 sootar = 1 inch. 1 sootar = 1/8 inch (0.125 inch). Example: 4 sootar = ½ inch."]
+  };
+  let active = null, pinned = false;
+  function close(restoreFocus = false) {
+    const previous = active;
+    if (popup.matches(":popover-open")) popup.hidePopover();
+    if (active) active.setAttribute("aria-expanded", "false");
+    active = null; pinned = false;
+    if (restoreFocus && previous) previous.focus();
+  }
+  function show(button, pin) {
+    if (active && active !== button) active.setAttribute("aria-expanded", "false");
+    active = button; pinned = pin;
+    const [title, text] = help[button.dataset.unitInfo];
+    document.getElementById("unit-help-title").textContent = title;
+    document.getElementById("unit-help-text").textContent = text;
+    button.setAttribute("aria-expanded", "true");
+    if (!popup.matches(":popover-open")) popup.showPopover();
+    const anchor = button.getBoundingClientRect();
+    const bounds = popup.getBoundingClientRect();
+    popup.style.left = `${Math.max(12, Math.min(anchor.left, window.innerWidth - bounds.width - 12))}px`;
+    popup.style.top = `${Math.max(12, anchor.bottom + bounds.height + 12 > window.innerHeight ? anchor.top - bounds.height - 8 : anchor.bottom + 8)}px`;
+  }
+  document.querySelectorAll(".unit-info").forEach(button => {
+    button.addEventListener("pointerenter", event => {
+      if (event.pointerType === "mouse" && !pinned) show(button, false);
+    });
+    button.addEventListener("pointerleave", event => {
+      if (!pinned && active === button && !popup.contains(event.relatedTarget)) close();
+    });
+    button.addEventListener("click", () => {
+      if (active === button && pinned) close();
+      else show(button, true);
+    });
+  });
+  popup.addEventListener("pointerleave", event => {
+    if (!pinned && event.relatedTarget !== active && !active?.contains(event.relatedTarget)) close();
+  });
+  document.getElementById("unit-help-close").addEventListener("click", () => close(true));
+  document.addEventListener("pointerdown", event => {
+    if (active && !active.contains(event.target) && !popup.contains(event.target)) close();
+  });
+  document.addEventListener("keydown", event => {if (event.key === "Escape" && active) close(true);});
+  window.addEventListener("resize", () => close());
+  window.addEventListener("scroll", () => close(), {passive: true});
 }
