@@ -18,7 +18,7 @@ const unitConfig = {
 let currentUnit = "ft";
 let lastResult = null;
 let packingStrategy = 0;
-let kerfMm = 3;
+let kerfMm = 0;
 
 const els = {
   stockMaterial: document.getElementById("stock-material"),
@@ -166,6 +166,19 @@ function onCalculate() {
   if (pieceItems.reduce((sum, p) => sum + p.qty, 0) > 2000) return alert("Please plan at most 2,000 pieces at a time.");
   DEFAULT_SHEET.length = length; DEFAULT_SHEET.width = width;
   lastResult = planCutting(stockItems, pieceItems);
+  lastResult.kerf = kerfMm;
+  if (kerfMm > 0) {
+    const savedKerf = kerfMm;
+    let zeroKerf;
+    try { kerfMm = 0; zeroKerf = planCutting(stockItems, pieceItems); }
+    finally { kerfMm = savedKerf; }
+    for (const row of lastResult.summary) {
+      const without = zeroKerf.summary.find(other => materialKey(other.material) === materialKey(row.material));
+      if (without && without.placedPieces >= row.placedPieces && without.sheetsUsed < row.sheetsUsed) {
+        lastResult.warnings.push(`${row.material}: the search found a ${without.sheetsUsed}-sheet layout without saw kerf, compared with ${row.sheetsUsed} with ${savedKerf} mm kerf. Cuts consume space even when piece lengths add up to the sheet length. The zero-kerf layout is a comparison, not a cutting plan.`);
+      }
+    }
+  }
   renderResults(lastResult);
 }
 
@@ -268,7 +281,7 @@ function renderPieceTable() {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${escapeHtml(item.material)}</td>
-      <td>${formatDim(item.length)} x ${formatDim(item.width)} ${unitLabel()}<br><small>${item.direction === "horizontal" ? "↔ Horizontal" : "↕ Vertical"}</small></td>
+      <td>L ${displayMeasure(item.length)} × W ${displayMeasure(item.width)}<br><small>${item.direction === "horizontal" ? "↔ Horizontal" : "↕ Vertical"}</small></td>
       <td>${item.qty}</td>
       <td><button class="btn" type="button" data-remove-piece="${item.id}">Remove</button></td>
     `;
@@ -556,7 +569,7 @@ function pruneContainedRectangles(rects) {
 
 function renderResults(result) {
   els.results.classList.remove("hidden");
-  els.resultUnit.textContent = `All dimensions in ${unitLabel()}`;
+  els.resultUnit.textContent = currentUnit === "ft" ? "Dimensions: ft · in · sootar (8 = 1 inch)" : `Dimensions in ${unitLabel()}`;
   els.summary.innerHTML = "";
   els.warnings.innerHTML = "";
   els.legend.innerHTML = "";
@@ -622,7 +635,7 @@ function renderWarnings(warnings) {
 
   for (const warning of warnings) {
     const div = document.createElement("div");
-    div.className = warning.includes("no stock was added") ? "success" : "warning";
+    div.className = warning.includes("no stock was added") ? "success" : warning.includes("without saw kerf") ? "kerf-info" : "warning";
     div.textContent = warning;
     els.warnings.appendChild(div);
   }
@@ -630,7 +643,8 @@ function renderWarnings(warnings) {
 
 function renderLegend() {
   const items = [
-    ["↕ Vertical / ↔ Horizontal pieces", "#c8ae8b"],
+    ["Piece labels: L = entered length, W = entered width; sheet grain always ↕", "#c8ae8b"],
+    ["Saw kerf: dark gaps (not colored borders)", "#4b5563"],
     ["Potentially reusable offcut", "var(--remaining)"],
     ["Waste / narrow offcut", "var(--waste)"],
   ];
@@ -672,21 +686,22 @@ function renderLayouts(sheets, summary) {
   }
 }
 
-function buildSheetNode(sheet, index) {
+function buildSheetNode(sheet, index, enlarged = false) {
   const container = document.createElement("div");
-  container.className = "sheet-block";
+  container.className = `sheet-block${enlarged ? " enlarged-sheet" : ""}`;
 
-  const usedPct = ((sheet.usedArea / (sheet.length * sheet.width)) * 100).toFixed(1);
+  const areas = sheetAreaBreakdown(sheet);
+  const pct = area => (100 * area / areas.total).toFixed(1);
   const title = document.createElement("div");
   title.className = "sheet-title";
   title.innerHTML = `
     <div>
       <strong>${escapeHtml(sheet.material)} sheet ${index}</strong>
-      <small>${sheet.source} - ${formatDim(sheet.length)} length x ${formatDim(sheet.width)} width ${unitLabel()}</small>
+      <small>${sheet.source} · ${displayMeasure(sheet.length)} × ${displayMeasure(sheet.width)}</small>
     </div>
     <div class="sheet-stats">
       ${sheet.placements.length} cut piece${sheet.placements.length === 1 ? "" : "s"}<br>
-      ${usedPct}% used<br>${(100 - Number(usedPct)).toFixed(1)}% offcut / kerf
+      ${pct(areas.used)}% pieces · ${pct(areas.reusable)}% reusable<br>${pct(areas.waste)}% scraps · ${pct(areas.kerf)}% kerf
     </div>
   `;
 
@@ -696,23 +711,23 @@ function buildSheetNode(sheet, index) {
   const canvas = document.createElement("div");
   canvas.className = "sheet-canvas";
 
-  const size = getCanvasSize(sheet);
+  const size = getCanvasSize(sheet, enlarged);
   const scale = size.scale;
   canvas.style.width = `${size.width}px`;
   canvas.style.height = `${size.height}px`;
 
   const widthDim = document.createElement("div");
   widthDim.className = "dimension-label dim-width";
-  widthDim.textContent = `Width ${formatDim(sheet.width)} ${unitLabel()}`;
+  widthDim.textContent = `W ${displayMeasure(sheet.width)}`;
   canvas.appendChild(widthDim);
 
   const lengthDim = document.createElement("div");
   lengthDim.className = "dimension-label dim-length";
-  lengthDim.textContent = `Length ${formatDim(sheet.length)} ${unitLabel()}`;
+  lengthDim.textContent = `L ${displayMeasure(sheet.length)}`;
   canvas.appendChild(lengthDim);
 
-  sheet.freeRects.forEach((rect) => {
-    canvas.appendChild(buildFreeRectNode(rect, sheet, scale));
+  sheet.freeRects.forEach((rect, offcutIndex) => {
+    canvas.appendChild(buildFreeRectNode(rect, sheet, scale, offcutIndex + 1));
   });
 
   sheet.placements.forEach((placement, placementIndex) => {
@@ -720,11 +735,27 @@ function buildSheetNode(sheet, index) {
   });
 
   wrap.appendChild(canvas);
+  const zoom = document.createElement("button");
+  zoom.className = "btn sheet-zoom";
+  zoom.type = "button";
+  zoom.textContent = enlarged ? "Compact view" : "Enlarge dimensions";
+  zoom.setAttribute("aria-expanded", String(enlarged));
+  zoom.addEventListener("click", () => {
+    const replacement = buildSheetNode(sheet, index, !enlarged);
+    container.replaceWith(replacement);
+    replacement.querySelector(".sheet-zoom").focus();
+  });
+  title.appendChild(zoom);
   container.appendChild(title);
   container.appendChild(wrap);
   const details = document.createElement("details");
   details.className = "cut-list";
-  details.innerHTML = `<summary>Cut list & offcuts · ${sheet.placements.length} pieces</summary><ul>${sheet.placements.map(p => `<li><b>P${p.pieceNo} ${p.rotated ? "↔" : "↕"}</b> ${formatDim(p.sourceLength)} × ${formatDim(p.sourceWidth)} ${unitLabel()} · ${p.rotated ? "Horizontal" : "Vertical"}</li>`).join("")}${sheet.freeRects.map(r => `<li>Offcut: ${formatDim(r.height)} × ${formatDim(r.width)} ${unitLabel()}</li>`).join("")}</ul>`;
+  details.open = true;
+  details.innerHTML = `<summary>Cut list & offcuts · ${sheet.placements.length} piece${sheet.placements.length === 1 ? "" : "s"}</summary>
+    <div class="dimension-note">L / W refer to your inputs. Across / down refer to the upright sheet. Grain always runs ↕. Exact metric values are shown below each entry.</div>
+    <ul>${sheet.placements.map(p => `<li><b>P${p.pieceNo}</b> · ${p.rotated ? "Length across sheet" : "Length down sheet"}<br>L ${displayMeasure(p.sourceLength)} · W ${displayMeasure(p.sourceWidth)}<small>${exactMm(p.sourceLength)} × ${exactMm(p.sourceWidth)} mm (L × W)</small></li>`).join("")}</ul>
+    <div class="offcut-heading">Offcuts · dimensions down × across</div>
+    <ul>${sheet.freeRects.map((r, i) => `<li><b>O${i+1} · ${isWasteRect(r, sheet) ? "Scrap" : "Reusable"}</b><br>${displayMeasure(r.height)} × ${displayMeasure(r.width)}<small>${exactMm(r.height)} × ${exactMm(r.width)} mm${isWasteRect(r, sheet) ? " · Narrower than 3 in or under 3.5% of sheet area" : ""}</small></li>`).join("") || '<li>No offcuts</li>'}</ul>`;
   container.appendChild(details);
   return container;
 }
@@ -741,24 +772,24 @@ function buildPieceNode(placement, index, scale) {
   // CSS auto height preserves the original 1000:1713 image ratio; excess is cropped.
   texture.style.backgroundSize = `${4 * MM_PER_FOOT * scale}px auto`;
   const w = placement.width * scale, h = placement.height * scale;
-  texture.style.width = `${placement.rotated ? h : w}px`;
-  texture.style.height = `${placement.rotated ? w : h}px`;
-  if (placement.rotated) texture.style.transform = "translate(-50%, -50%) rotate(90deg)";
+  // The sheet grain stays vertical regardless of the piece orientation.
+  texture.style.width = `${w}px`;
+  texture.style.height = `${h}px`;
 
-  const readable = placement.width * scale >= 42 && placement.height * scale >= 36;
+  const readable = placement.width * scale >= 85 && placement.height * scale >= 55;
   block.innerHTML = `
     <span class="rect-label${readable ? "" : " tiny-label"}">
-      P${placement.pieceNo} ${placement.rotated ? "↔" : "↕"}<br>
-      ${formatDim(placement.sourceLength)} x ${formatDim(placement.sourceWidth)} ${unitLabel()}
+      P${placement.pieceNo}<br>
+      L ${compactMeasure(placement.sourceLength)}<br>W ${compactMeasure(placement.sourceWidth)}
     </span>
   `;
   block.prepend(texture);
-  if (!readable) block.querySelector("span").textContent = `P${placement.pieceNo}`;
-  block.title = `Piece ${placement.pieceNo}: ${formatDim(placement.sourceLength)} x ${formatDim(placement.sourceWidth)} ${unitLabel()}${placement.rotated ? " — Horizontal" : " — Vertical"}`;
+  fitDimensionLabel(block, placement, scale);
+  block.title = `P${placement.pieceNo}: L ${displayMeasure(placement.sourceLength)}, W ${displayMeasure(placement.sourceWidth)}. Length runs ${placement.rotated ? "across" : "down"} the sheet; grain stays vertical.`;
   return block;
 }
 
-function buildFreeRectNode(rect, sheet, scale) {
+function buildFreeRectNode(rect, sheet, scale, number) {
   const block = document.createElement("div");
   const isWaste = isWasteRect(rect, sheet);
   block.className = `waste-rect${isWaste ? "" : " reusable-rect"}`;
@@ -769,15 +800,17 @@ function buildFreeRectNode(rect, sheet, scale) {
     block.style.borderStyle = "solid";
   }
 
-  const readable = rect.width * scale >= 72 && rect.height * scale >= 38;
+  const readable = rect.width * scale >= 150 && rect.height * scale >= 65;
   const label = isWaste ? "Waste" : "Remaining";
   block.innerHTML = `
     <span class="rect-label${readable ? "" : " tiny-label"}">
-      ${label}<br>
-      ${formatDim(rect.height)} x ${formatDim(rect.width)} ${unitLabel()}
+      O${number} · ${label}<br>
+      ${compactMeasure(rect.height)}<br>× ${compactMeasure(rect.width)}
     </span>
   `;
-  block.title = `${label}: ${formatDim(rect.height)} length x ${formatDim(rect.width)} width ${unitLabel()}`;
+  fitDimensionLabel(block, rect, scale);
+  block.setAttribute("aria-label", `Offcut O${number}: ${label}, ${displayMeasure(rect.height)} down by ${displayMeasure(rect.width)} across. Full dimensions in the open list below.`);
+  block.title = `O${number} ${label}: ${displayMeasure(rect.height)} down × ${displayMeasure(rect.width)} across`;
   return block;
 }
 
@@ -788,9 +821,9 @@ function setRectStyles(node, rect, scale) {
   node.style.height = `${Math.max(rect.height * scale, 1)}px`;
 }
 
-function getCanvasSize(sheet) {
-  const maxWidth = Math.min(230, Math.max(120, window.innerWidth - 150));
-  const maxHeight = 300;
+function getCanvasSize(sheet, enlarged = false) {
+  const maxWidth = enlarged ? 520 : Math.min(230, Math.max(120, window.innerWidth - 150));
+  const maxHeight = enlarged ? 640 : 320;
   const scale = Math.min(maxWidth / sheet.width, maxHeight / sheet.length);
 
   return {
@@ -1051,7 +1084,7 @@ function renderPiecePreview() {
     : !validSheet ? "Enter valid estimate sheet dimensions to check the fit."
     : !fits ? "This piece does not fit the selected material’s sheet sizes in this direction. Change dimensions or direction."
     : matching.length ? `Fits matching stock. Preview uses ${formatDim(sh)} × ${formatDim(sw)} ${unitLabel()}${matching.length > 1 ? '; other stock sizes may also be used in the final plan' : ''}.`
-    : "Fits the estimate sheet. This previews one piece; the final plan also allows for saw kerf.";
+    : "Fits the estimate sheet. Optional saw kerf is applied only when you enter a value above zero.";
 }
 
 function readPieceDimension(dimension) {
@@ -1062,4 +1095,46 @@ function readPieceDimension(dimension) {
     return Number.isFinite(value) && value >= 0 ? value : NaN;
   });
   return values[0] * MM_PER_FOOT + values[1] * 25.4 + values[2] * (25.4 / 8);
+}
+
+function exactMm(mm) {
+  return String(Number(mm.toFixed(6)));
+}
+function displayMeasure(mm) {
+  if (currentUnit !== "ft") return `${Number(fromMm(mm).toFixed(6))} ${unitLabel()}`;
+  const totalSootar = mm / (25.4 / 8);
+  // Normalize before decomposition so rounding never produces 8 sootar.
+  const rounded = Math.round(totalSootar * 1000) / 1000;
+  const feet = Math.floor(rounded / 96);
+  const inches = Math.floor((rounded - feet * 96) / 8);
+  const sootar = Number((rounded - feet * 96 - inches * 8).toFixed(3));
+  const parts = [];
+  if (feet) parts.push(`${feet} ft`);
+  if (inches) parts.push(`${inches} in`);
+  if (sootar) parts.push(`${sootar} sootar`);
+  return `${Math.abs(rounded-totalSootar)>1e-7 ? "≈ " : ""}${parts.join(" ") || "0 in"}`;
+}
+function sheetAreaBreakdown(sheet) {
+  const total = sheet.length * sheet.width;
+  let reusable = 0, waste = 0;
+  for (const rect of sheet.freeRects) {
+    if (isWasteRect(rect, sheet)) waste += rect.width * rect.height;
+    else reusable += rect.width * rect.height;
+  }
+  return {total, used:sheet.usedArea, reusable, waste, kerf:Math.max(0,total-sheet.usedArea-reusable-waste)};
+}
+
+function compactMeasure(mm) {
+  return displayMeasure(mm).replaceAll(" sootar", " s").replaceAll(" ft", "′").replaceAll(" in", "″");
+}
+function fitDimensionLabel(block, rect, scale) {
+  const label = block.querySelector(".rect-label");
+  label.classList.remove("tiny-label");
+  const width = rect.width * scale, height = rect.height * scale;
+  if (width < 70 && height > width * 1.5) {
+    label.classList.add("turned-dimensions");
+    label.style.width = `${height}px`;
+    label.style.height = `${width}px`;
+  }
+  label.style.fontSize = Math.min(width, height) < 32 ? "8px" : "10px";
 }

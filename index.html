@@ -183,7 +183,7 @@
           <label class="direction-control">Required pattern direction
             <select id="piece-direction"><option value="vertical">↕ Vertical — length along sheet grain</option><option value="horizontal">↔ Horizontal — width along sheet grain</option></select>
           </label>
-          <p class="form-help">Sheet grain always runs top to bottom. Vertical places length down the sheet; horizontal places length across it. Your selection is locked, including square pieces. Texture arrows indicate the requested piece direction.</p>
+          <p class="form-help">Sheet grain always runs top to bottom. Vertical places length down the sheet; horizontal places length across it. Your selection is locked, including square pieces. The wood texture always stays vertical; the selected direction determines which way the piece length is placed.</p>
           <button id="add-piece" class="btn btn-primary" type="button">Add Piece</button>
 
           <section class="piece-preview" aria-label="Live piece dimension preview">
@@ -217,7 +217,7 @@
             using the estimate sheet size below. Matching stock quantities remain a hard limit.
           </p>
         </div>
-        <div class="estimate-controls"><label>Estimate sheet length<input id="estimate-length" type="number" min="0.001" step="any" value="8"></label><label>Estimate sheet width<input id="estimate-width" type="number" min="0.001" step="any" value="4"></label><label>Saw kerf (mm)<input id="kerf" type="number" min="0" step="0.1" value="3"></label><p class="form-help">Estimate sizes apply to materials without stock. Default: 8 × 4 ft. Kerf is allowed between cuts.</p></div><div class="action-buttons">
+        <div class="estimate-controls"><label>Estimate sheet length<input id="estimate-length" type="number" min="0.001" step="any" value="8"></label><label>Estimate sheet width<input id="estimate-width" type="number" min="0.001" step="any" value="4"></label><label>Optional saw kerf (mm)<input id="kerf" type="number" min="0" step="0.1" value="0"></label><p class="form-help">Estimate sizes apply to materials without stock. Default: 8 × 4 ft. Saw kerf defaults to 0. Leave it at 0 for no cutting allowance, or enter your blade width in mm.</p></div><div class="action-buttons">
           <button id="calculate" class="btn btn-calculate" type="button">Calculate Sheets</button>
           <button id="load-demo" class="btn" type="button">Load Demo</button>
           <button id="clear-all" class="btn btn-danger" type="button">Clear All</button>
@@ -235,7 +235,7 @@
         <div id="summary" class="summary"></div>
         <div id="warnings" class="warnings"></div>
         <div id="legend" class="legend"></div>
-        <p class="form-help">Multi-pass guillotine packing compares piece orders and cut directions. It prioritizes fitting pieces, fewer sheets, less material consumed, a balance of reusable leftover area and larger continuous offcuts. Small jobs compare 120 layouts; large jobs compare 36. Offcuts narrower than 3 inches or smaller than 3.5% of their sheet are treated as waste; a mathematical optimum is not guaranteed. Hatched areas are offcuts; thin gaps are saw kerf. Open a sheet’s cut list for every dimension.</p><div id="layouts" class="layouts"></div>
+        <p class="form-help">Multi-pass guillotine packing compares piece orders and cut directions. It prioritizes fitting pieces, fewer sheets, less material consumed, a balance of reusable leftover area and larger continuous offcuts. Small jobs compare 120 layouts; large jobs compare 36. Offcuts narrower than 3 inches or smaller than 3.5% of their sheet are treated as waste; a mathematical optimum is not guaranteed. Hatched areas are offcuts; thin gaps are saw kerf when enabled. Diagram units: ′ = feet, ″ = inches, s = sootar. Use Enlarge dimensions for small parts. Every piece and numbered offcut has dimensions in the expanded list below its sheet.</p><div id="layouts" class="layouts"></div>
       </section>
 
       <section class="content-section" aria-label="MDF calculator guide">

@@ -855,3 +855,33 @@ html {scroll-behavior:smooth}
 .dimension-parts input {min-width:0;padding:8px 6px;min-height:38px;font-size:13px}
 .dimension-help {margin:0 0 10px}
 @media(max-width:560px){.dimension-inputs{grid-column:1/-1}.dimension-parts{gap:8px}.dimension-parts input{min-height:40px}}
+
+/* Compact results, with dimensions and offcut references visible by default. */
+.material-group {grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr))}
+.sheet-title {min-height:0;padding:10px;display:block}
+.sheet-title small {font-weight:500;font-size:12px;line-height:1.5}
+.sheet-stats {margin-top:7px;text-align:left;font-size:11px;line-height:1.5}
+.canvas-wrap {padding:34px 32px 14px;min-height:308px;background-size:20px 20px}
+.sheet-canvas {background:#4b5563}
+.piece {border-width:1px}
+.waste-rect .offcut-id {font-size:9px!important;padding:0;color:#573c18;overflow:visible}
+.waste-rect:has(.offcut-id) {overflow:visible}
+.offcut-id {position:relative;z-index:6;text-shadow:0 0 2px white}
+.cut-list {padding:10px;line-height:1.5}
+.cut-list ul {list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px}
+.cut-list li {padding:7px;border:1px solid #e5e7df;border-radius:5px;overflow-wrap:anywhere}
+.cut-list small {display:block;font-size:10px;color:var(--muted);margin-top:4px}
+.dimension-note {font-size:10px;color:var(--muted);margin:8px 0}
+.offcut-heading {font-size:12px;font-weight:700;color:var(--primary-dark);margin-top:10px}
+@media(max-width:600px){.material-group{grid-template-columns:minmax(0,1fr)}.canvas-wrap{min-height:308px}}
+
+.kerf-info {padding:10px 12px;border:1px solid #c4d8df;background:#f0f7fa;color:#244957;border-radius:8px;font-size:13px;line-height:1.5}
+
+/* Always retain measurements on the drawing; turn labels for narrow strips. */
+.piece .rect-label,.waste-rect .rect-label {font-size:10px;line-height:1.2;white-space:nowrap;padding:1px}
+.rect-label.turned-dimensions {position:absolute;inset:auto;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-90deg);display:flex;flex-direction:column;justify-content:center;align-items:center}
+.sheet-zoom {margin-top:8px;min-height:28px;padding:4px 8px;font-size:11px}
+.enlarged-sheet {grid-column:1/-1}
+.enlarged-sheet .canvas-wrap {overflow:auto;justify-content:flex-start}
+.enlarged-sheet .sheet-canvas {flex-shrink:0;margin:0 auto}
+.canvas-wrap {min-height:368px}

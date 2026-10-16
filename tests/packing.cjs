@@ -48,3 +48,17 @@ assert.ok(Math.abs(vm.runInContext('readPieceDimension("length")',ctx)-25.4)<1e-
 dimensionValues['piece-length-sootar']='-1';
 assert.ok(Number.isNaN(vm.runInContext('readPieceDimension("length")',ctx)));
 console.log('Passed: compound dimensions, blank fields, sootar conversion, unit independence, negative validation.');
+
+vm.runInContext('currentUnit="ft"',ctx);
+assert.equal(vm.runInContext('displayMeasure(3.5*304.8)',ctx),'3 ft 6 in');
+assert.equal(vm.runInContext('displayMeasure(25.4/8)',ctx),'1 sootar');
+assert.ok(vm.runInContext('displayMeasure(3.9*304.8)',ctx).includes('10 in'));
+vm.runInContext(`
+const sampleStock=[{id:'kerf',material:'MDF',length:8*304.8,width:4*304.8,available:10}];
+const samplePieces=[{material:'MDF',length:3.5*304.8,width:3.9*304.8,qty:2},{material:'MDF',length:304.8,width:4*304.8,qty:1}];
+kerfMm=3;const actual=planCutting(sampleStock,samplePieces);
+kerfMm=0;const ideal=planCutting(sampleStock,samplePieces);kerfMm=3;
+if(actual.totals.sheetsUsed!==2 || ideal.totals.sheetsUsed!==1)throw Error('kerf comparison regression');
+for(const sheet of actual.sheets){const a=sheetAreaBreakdown(sheet);if(Math.abs(a.used+a.reusable+a.waste+a.kerf-a.total)>1e-5)throw Error('area accounting');}
+`,ctx);
+console.log('Passed: compound result labels, kerf explanation example, and separate area accounting.');
